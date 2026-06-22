@@ -1,0 +1,19 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "shell": "powershell",
+            "command": "$env:PATH += ';C:\\Program Files\\Git\\cmd'; Set-Location 'C:\\Users\\a0106\\ai-blog'; git add .; $msg = 'auto: ' + (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'); git diff --cached --quiet 2>$null; if ($LASTEXITCODE -ne 0) { git commit -m $msg; git push } ",
+            "timeout": 30,
+            "statusMessage": "GitHub에 저장 중...",
+            "async": true
+          }
+        ]
+      }
+    ]
+  }
+}
