@@ -188,21 +188,30 @@ async function main() {
       )
     })
 
-    // 진단: contenteditable / data-placeholder 요소 목록
-    const editables = await pfFrame.evaluate(function() {
-      return Array.from(document.querySelectorAll('[contenteditable], [data-placeholder]')).map(function(el) {
-        return {
-          tag: el.tagName,
-          cls: (el.className || '').toString().slice(0, 80),
-          placeholder: el.getAttribute('data-placeholder') || undefined,
-          visible: !!(el as HTMLElement).offsetParent,
-        }
-      })
-    })
-    console.log('  [진단] contenteditable/data-placeholder 요소:')
-    editables.forEach(function(e, i) { console.log('    [' + i + '] ' + JSON.stringify(e)) })
+    // draft 모달 재확인 (step 3에서 타이밍 문제로 놓쳤을 경우)
+    const draftModal2 = editorCtx.locator('text=작성 중인 글이 있습니다').first()
+    if (await draftModal2.isVisible({ timeout: 2000 }).catch(() => false)) {
+      console.log('  [step4] draft 모달 감지 → 취소 클릭 (새 글 작성)')
+      await editorCtx.locator('button:has-text("취소")').first().click()
+      await editorPage.waitForTimeout(800)
+    }
 
-    // 방법 1: data-placeholder="제목" 속성으로 찾기
+    // getByRole('textbox') — Shadow DOM 관통, 첫 번째가 제목 영역
+    const textboxCount = await editorCtx.getByRole('textbox').count().catch(() => 0)
+    console.log('  textbox count:', textboxCount)
+
+    // 방법 1: getByRole('textbox').first() — 제목 영역
+    const titleTextbox = editorCtx.getByRole('textbox').first()
+    if (await titleTextbox.isVisible({ timeout: 3000 }).catch(() => false)) {
+      console.log('  getByRole(textbox) 제목 발견 → 클릭 후 입력')
+      await titleTextbox.click()
+      await editorPage.waitForTimeout(200)
+      await editorPage.keyboard.type(TITLE)
+      console.log('  제목 입력 완료 (getByRole textbox)')
+      return
+    }
+
+    // 방법 2: data-placeholder="제목" 속성으로 찾기
     const titleLocator = editorCtx.locator('[data-placeholder="제목"], [data-placeholder*="제목"]').first()
     if (await titleLocator.isVisible({ timeout: 3000 }).catch(() => false)) {
       console.log('  data-placeholder 제목 요소 발견 → 클릭 후 입력')
@@ -213,30 +222,11 @@ async function main() {
       return
     }
 
-    // 방법 2: iframe 내 첫 번째 가시 contenteditable에 execCommand
-    const focused = await pfFrame.evaluate(function(title) {
-      var els = Array.from(document.querySelectorAll('[contenteditable]')).filter(function(el) {
-        return !!(el as HTMLElement).offsetParent && el.getAttribute('aria-hidden') !== 'true'
-      }) as HTMLElement[]
-      if (els.length > 0) {
-        els[0].focus()
-        els[0].click()
-        document.execCommand('selectAll', false, undefined)
-        document.execCommand('insertText', false, title)
-        return true
-      }
-      return false
-    }, TITLE)
-    if (focused) {
-      console.log('  제목 입력 완료 (evaluate execCommand)')
-      return
-    }
-
-    // 방법 3: 좌표 클릭 fallback (y≈190 = 제목 영역 상단부)
+    // 방법 3: 좌표 클릭 fallback (y≈245 = "제목" placeholder 중심)
     const iframeBox = await editorPage.locator('iframe').first().boundingBox()
     if (!iframeBox) throw new Error('iframe 위치를 찾지 못했습니다.')
     const titleX = iframeBox.x + 315
-    const titleY = iframeBox.y + 190
+    const titleY = iframeBox.y + 245
     console.log('  좌표 클릭: (' + titleX + ', ' + titleY + ')')
     await editorPage.mouse.click(titleX, titleY)
     await editorPage.waitForTimeout(200)
