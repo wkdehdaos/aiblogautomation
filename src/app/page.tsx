@@ -605,7 +605,7 @@ export default function BlogFormPage() {
                     const res = await fetch('/api/publish', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ title: result.title, content: result.content, images }),
+                      body: JSON.stringify({ title: result.title, content: result.content, images, font: selectedFont }),
                     })
                     const data = await res.json() as { success: boolean; url?: string; error?: string; lastStep?: string }
                     if (data.success) {
