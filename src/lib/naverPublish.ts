@@ -70,9 +70,12 @@ async function dismissDraftModal(page: Page) {
   await page.waitForTimeout(800)
 }
 
+// aria-hidden·클립보드용 히든 div를 제외한 실제 에디터 contenteditable 셀렉터
+const CE = '[contenteditable="true"]:not([aria-hidden="true"]):not([allow])'
+
 async function findEditorCtx(page: Page): Promise<LocatorCtx> {
-  // 1. 메인 페이지에 contenteditable이 있으면 페이지 직접 반환
-  const ceOnPage = page.locator('[contenteditable="true"]').first()
+  // 1. 메인 페이지에 실제 contenteditable이 있으면 페이지 직접 반환
+  const ceOnPage = page.locator(CE).first()
   if (await ceOnPage.isVisible({ timeout: 6000 }).catch(() => false)) {
     return page
   }
@@ -81,7 +84,7 @@ async function findEditorCtx(page: Page): Promise<LocatorCtx> {
   const pfFrame = page.frames().find(f => f.url().includes('PostWriteForm'))
   if (pfFrame) {
     const fl = page.frameLocator('iframe[src*="PostWriteForm"]')
-    if (await fl.locator('[contenteditable="true"]').first().isVisible({ timeout: 15000 }).catch(() => false)) {
+    if (await fl.locator(CE).first().isVisible({ timeout: 15000 }).catch(() => false)) {
       return fl
     }
   }
@@ -93,7 +96,7 @@ async function findEditorCtx(page: Page): Promise<LocatorCtx> {
       const src = frame.url()
       if (!src) continue
       const fl = page.frameLocator(`iframe[src="${src}"]`)
-      if (await fl.locator('[contenteditable="true"]').first().isVisible({ timeout: 3000 }).catch(() => false)) {
+      if (await fl.locator(CE).first().isVisible({ timeout: 3000 }).catch(() => false)) {
         return fl
       }
     } catch { continue }
