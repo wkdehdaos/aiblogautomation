@@ -39,21 +39,32 @@ export async function POST(req: NextRequest) {
 
   const photoFiles = formData.getAll('photos') as File[]
 
+  const MAX_IMAGE_BYTES = 4 * 1024 * 1024 // 4MB
+
   const imageBlocks: Anthropic.ImageBlockParam[] = (
     await Promise.all(
       photoFiles.map(async (file) => {
-        const mediaType = VALID_IMAGE_TYPES.has(file.type)
-          ? (file.type as Anthropic.Base64ImageSource['media_type'])
-          : ('image/jpeg' as const)
+        if (!VALID_IMAGE_TYPES.has(file.type)) {
+          console.warn(`[generate] 지원하지 않는 이미지 형식 건너뜀: ${file.type} (${file.name})`)
+          return null
+        }
+        if (file.size > MAX_IMAGE_BYTES) {
+          console.warn(`[generate] 이미지 크기 초과 건너뜀: ${file.size} bytes (${file.name})`)
+          return null
+        }
         const buffer = await file.arrayBuffer()
         const data = Buffer.from(buffer).toString('base64')
         return {
           type: 'image' as const,
-          source: { type: 'base64' as const, media_type: mediaType, data },
+          source: {
+            type: 'base64' as const,
+            media_type: file.type as Anthropic.Base64ImageSource['media_type'],
+            data,
+          },
         }
       })
     )
-  )
+  ).filter((b): b is Anthropic.ImageBlockParam => b !== null)
 
   const lengthInstruction =
     lengthOption === 'custom' && customLength
