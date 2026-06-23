@@ -56,9 +56,15 @@ export async function POST(req: NextRequest) {
 
     // 사진 변환 실패해도 전체 요청은 계속 진행
     const results = await Promise.allSettled(photoFiles.map(toImageBlock))
-    const imageBlocks = results
-      .map((r) => (r.status === 'fulfilled' ? r.value : null))
-      .filter((b): b is Anthropic.ImageBlockParam => b !== null)
+    // 성공한 사진의 원본 인덱스를 추적해 클라이언트가 올바른 사진을 매핑할 수 있게 함
+    const successIndices: number[] = []
+    const imageBlocks: Anthropic.ImageBlockParam[] = []
+    results.forEach((r, idx) => {
+      if (r.status === 'fulfilled' && r.value !== null) {
+        imageBlocks.push(r.value)
+        successIndices.push(idx)
+      }
+    })
 
     const lengthInstruction =
       lengthOption === 'custom' && customLength
