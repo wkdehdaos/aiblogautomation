@@ -5,10 +5,11 @@ import fs from 'fs'
 import os from 'os'
 
 export async function POST(req: NextRequest) {
-  const { title, content, images } = (await req.json()) as {
+  const { title, content, images, font } = (await req.json()) as {
     title: string
     content: string
     images: string[] // base64
+    font?: string
   }
 
   if (!title || !content) {
