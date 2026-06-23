@@ -161,21 +161,32 @@ async function main() {
 
   // ── 4단계: 제목 입력 ──────────────────────────
   await runStep(editorPage, '제목입력', async () => {
-    // SmartEditor ONE: textbox[0] = 제목
-    const titleBox = editorCtx.getByRole('textbox').first()
-    await titleBox.waitFor({ timeout: 10000 })
-    await titleBox.click()
-    await titleBox.pressSequentially(TITLE, { delay: 30 })
+    // 글감 패널 닫기 (여전히 열려 있을 수 있음)
+    await editorCtx.locator('.se-floating-material-menu').first().isVisible({ timeout: 1000 })
+      .then(async visible => {
+        if (visible) await editorPage.keyboard.press('Escape')
+      }).catch(() => {})
+
+    // 제목: placeholder="제목" 또는 aria-label에 "제목" 포함
+    const titleBox = editorCtx.getByPlaceholder('제목').or(
+      editorCtx.getByRole('textbox', { name: /제목/i })
+    ).first()
+    const fallback = editorCtx.getByRole('textbox').filter({ hasNOT: editorCtx.locator('[name="material-search"]') }).first()
+
+    const target = await titleBox.isVisible({ timeout: 5000 }).catch(() => false) ? titleBox : fallback
+    await target.waitFor({ timeout: 10000 })
+    await target.click()
+    await target.pressSequentially(TITLE, { delay: 30 })
     console.log('  제목 입력 완료')
   })
 
   // ── 5단계: 본문 입력 ──────────────────────────
   await runStep(editorPage, '본문입력', async () => {
-    // SmartEditor ONE: textbox[1] = 본문
-    const boxes = editorCtx.getByRole('textbox')
-    const count = await boxes.count()
-    console.log(`  textbox 개수: ${count}`)
-    const bodyBox = count >= 2 ? boxes.nth(1) : boxes.first()
+    // material-search 제외 후 두 번째 textbox = 본문
+    const allBoxes = editorCtx.getByRole('textbox').filter({ hasNOT: editorCtx.locator('[name="material-search"]') })
+    const count = await allBoxes.count()
+    console.log(`  textbox 개수 (검색 제외): ${count}`)
+    const bodyBox = count >= 2 ? allBoxes.nth(1) : allBoxes.first()
     await bodyBox.click()
     await bodyBox.pressSequentially(CONTENT, { delay: 30 })
     console.log('  본문 입력 완료')
