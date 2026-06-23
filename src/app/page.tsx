@@ -548,6 +548,20 @@ export default function BlogFormPage() {
               />
             </section>
 
+            {/* 서체 선택 */}
+            <div className="flex items-center gap-3 rounded-xl bg-white px-4 py-3 ring-1 ring-gray-100">
+              <span className="shrink-0 text-sm font-medium text-gray-700">서체</span>
+              <select
+                value={selectedFont}
+                onChange={(e) => setSelectedFont(e.target.value)}
+                className="flex-1 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-800 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-200"
+              >
+                {['나눔고딕', '나눔명조', '나눔바른고딕', '나눔스퀘어', '맑은 고딕', '돋움', '굴림', '바탕', '궁서'].map(f => (
+                  <option key={f} value={f}>{f}</option>
+                ))}
+              </select>
+            </div>
+
             {/* 발행 상태 메시지 */}
             {publishStatus && (
               <div className={`rounded-xl px-4 py-3 text-sm font-medium ${
