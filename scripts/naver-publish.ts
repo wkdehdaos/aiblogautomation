@@ -139,23 +139,19 @@ async function main() {
       await editorPage.waitForTimeout(800)
     }
 
-    // ② 도움말 패널 닫기 (PostWriteForm 내 X 버튼)
+    // ② 도움말 패널 닫기 + floating 패널 숨기기
     const pfFrame = editorPage.frames().find(f => f.url().includes('PostWriteForm'))
     if (pfFrame) {
-      const helpX = pfFrame.locator('button[aria-label*="닫기"], button.btn_help_close').first()
-      if (await helpX.isVisible({ timeout: 1000 }).catch(() => false)) {
-        await helpX.click()
-      } else {
-        // 스크린샷 기준 우상단 X 좌표 (viewport 절대 좌표)
-        await editorPage.mouse.click(1224, 42)
-      }
-      await editorPage.waitForTimeout(500)
-      // 글감 floating 패널도 JS로 숨기기
+      // 도움말 X 버튼 (스크린샷 기준 우상단 ~1224, 42)
+      await editorPage.mouse.click(1224, 42).catch(() => {})
+      await editorPage.waitForTimeout(400)
+      // JS로 floating 패널 숨기기
       await pfFrame.evaluate(() => {
-        document.querySelectorAll<HTMLElement>('.se-floating-material-menu, .se-floating-search').forEach(
-          el => { el.style.display = 'none' }
-        )
+        document.querySelectorAll<HTMLElement>(
+          '.se-floating-material-menu, .se-floating-search, [class*="help"], [class*="layer_help"]'
+        ).forEach(el => { el.style.display = 'none' })
       })
+      await editorPage.waitForTimeout(300)
     }
 
     // 진단: 입력 요소 목록
