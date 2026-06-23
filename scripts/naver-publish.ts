@@ -133,9 +133,12 @@ async function main() {
 
     // 도움말 팝업 닫기
     await editorPage.locator('.btn_help_close, button:has-text("닫기")').first().click({ timeout: 2000 }).catch(() => {})
-    // 글감 검색 등 floating 패널이 열려있으면 Escape로 닫기
-    await editorPage.keyboard.press('Escape')
-    await editorPage.waitForTimeout(500)
+    // PostWriteForm 프레임 내부에 Escape 전송 → 글감 패널 닫기
+    const pfFrame = editorPage.frames().find(f => f.url().includes('PostWriteForm'))
+    if (pfFrame) {
+      await pfFrame.press('body', 'Escape').catch(() => {})
+      await editorPage.waitForTimeout(500)
+    }
 
     // 진단: 입력 요소 목록
     for (const frame of editorPage.frames()) {
