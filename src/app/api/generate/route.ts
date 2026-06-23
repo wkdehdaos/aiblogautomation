@@ -127,10 +127,13 @@ export async function POST(req: NextRequest) {
 - 이모지 없이
 
 ## 응답 규칙
-- 반드시 유효한 JSON 한 개만 출력, 다른 텍스트 없음
+- 아래 형식만 사용. JSON 사용 금지. 다른 텍스트 없음.
 
-응답 형식:
-{"title":"블로그 글 제목","content":"HTML 형식의 본문"}`
+<<<TITLE>>>
+블로그 글 제목
+<<<CONTENT>>>
+HTML 형식의 본문
+<<<END>>>`
 
     const userLines = [
       `업체명: ${businessName}`,
