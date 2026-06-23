@@ -177,7 +177,7 @@ export async function POST(req: NextRequest) {
     }
 
     const { title, content } = JSON.parse(jsonMatch[0]) as { title: string; content: string }
-    return Response.json({ title, content })
+    return Response.json({ title, content, successIndices })
   } catch (err) {
     console.error('[generate] error:', err)
     const message = err instanceof Error ? err.message : '알 수 없는 오류'
