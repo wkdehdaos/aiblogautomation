@@ -15,6 +15,7 @@ interface BlogFormData {
   title: string
   businessName: string
   businessInfo: string
+  location: string
   photos: PhotoItem[]
   keywords: string[]
   lengthOption: LengthOption
