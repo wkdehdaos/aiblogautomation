@@ -57,18 +57,19 @@ async function runStep(page: Page, label: string, fn: () => Promise<void>) {
   }
 }
 
+// aria-hidden이 아닌 실제 편집 가능한 contenteditable 셀렉터
+const EDITABLE = '[contenteditable="true"]:not([aria-hidden="true"]):not([aria-hidden])'
+
 // 에디터가 있는 프레임을 찾아 반환 (iframe 또는 메인 페이지)
 async function findEditorFrame(page: Page): Promise<Page | Frame> {
-  // 메인 페이지에서 먼저 확인
-  const inMain = await page.locator('[contenteditable="true"]').first().isVisible({ timeout: 5000 }).catch(() => false)
+  const inMain = await page.locator(EDITABLE).first().isVisible({ timeout: 5000 }).catch(() => false)
   if (inMain) {
     console.log('  에디터: 메인 페이지')
     return page
   }
-  // 모든 iframe 순회
   for (const frame of page.frames()) {
     if (frame === page.mainFrame()) continue
-    const inFrame = await frame.locator('[contenteditable="true"]').first().isVisible({ timeout: 1000 }).catch(() => false)
+    const inFrame = await frame.locator(EDITABLE).first().isVisible({ timeout: 1000 }).catch(() => false)
     if (inFrame) {
       console.log(`  에디터: iframe (${frame.url()})`)
       return frame
