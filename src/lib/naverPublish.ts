@@ -106,11 +106,12 @@ async function findEditorCtx(page: Page): Promise<LocatorCtx> {
   return page
 }
 
-// editorCtx 에서 contenteditable 요소를 클릭
+// editorCtx 에서 실제 에디터 contenteditable 요소를 클릭 (히든 div 제외)
 async function clickEditorArea(editorPage: Page, editorCtx: LocatorCtx, nth: number) {
-  const ce = editorCtx.locator('[contenteditable="true"]').nth(nth)
-  if (await ce.isVisible({ timeout: 3000 }).catch(() => false)) {
-    await ce.click({ timeout: 3000 })
+  const ce = editorCtx.locator(CE).nth(nth)
+  if (await ce.isVisible({ timeout: 5000 }).catch(() => false)) {
+    await ce.scrollIntoViewIfNeeded({ timeout: 2000 }).catch(() => {})
+    await ce.click({ timeout: 5000 })
     return
   }
   // iframe 좌표 폴백
