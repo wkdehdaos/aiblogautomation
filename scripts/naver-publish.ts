@@ -207,32 +207,16 @@ async function main() {
       await editorPage.waitForTimeout(800)
     }
 
-    // 방법 1: 에디터 로드 직후 기본 포커스가 제목에 있을 수 있음 — 바로 타이핑
-    // (SmartEditor ONE은 새 글 작성 시 제목에 포커스 위치)
-    const beforeTitle = await editorCtx.getByRole('textbox').first().inputValue().catch(() => '')
-    await editorPage.keyboard.type(TITLE)
+    // 제목 영역 좌표 클릭 (y≈225 = "제목" placeholder 중심)
+    // Tab은 제목 내에서 커서만 이동하므로 좌표 클릭이 가장 신뢰할 수 있음
+    const iframeBox = await editorPage.locator('iframe[src*="PostWriteForm"]').first().boundingBox()
+    if (!iframeBox) throw new Error('iframe 위치를 찾지 못했습니다.')
+    const titleX = iframeBox.x + 315
+    const titleY = iframeBox.y + 225
+    console.log('  제목 좌표 클릭: (' + titleX + ', ' + titleY + ')')
+    await editorPage.mouse.click(titleX, titleY)
     await editorPage.waitForTimeout(300)
-    const afterTitle = await editorCtx.getByRole('textbox').first().inputValue().catch(() => '')
-    if (afterTitle !== beforeTitle) {
-      console.log('  직접 타이핑 후 textbox 값 변화 감지 (body에 입력됨일 수 있음, 계속 진행)')
-    }
-
-    // 제목 영역 확인: 제목 placeholder가 사라졌는지 accessibility 트리로 확인
-    const titlePlaceholderGone = await editorCtx.locator('text=제목').first().isHidden({ timeout: 1000 }).catch(() => false)
-    if (!titlePlaceholderGone) {
-      // 제목 placeholder 여전히 보임 → 제목 영역 클릭 필요
-      console.log('  제목 placeholder 남아있음 → 제목 영역 직접 클릭 시도')
-
-      // 방법 2: 좌표 클릭 (y≈225 = "제목" placeholder 중심)
-      const iframeBox = await editorPage.locator('iframe[src*="PostWriteForm"]').first().boundingBox()
-      if (!iframeBox) throw new Error('iframe 위치를 찾지 못했습니다.')
-      const titleX = iframeBox.x + 315
-      const titleY = iframeBox.y + 225
-      console.log('  좌표 클릭: (' + titleX + ', ' + titleY + ')')
-      await editorPage.mouse.click(titleX, titleY)
-      await editorPage.waitForTimeout(300)
-      await editorPage.keyboard.type(TITLE)
-    }
+    await editorPage.keyboard.type(TITLE)
     console.log('  제목 입력 완료')
   })
 
