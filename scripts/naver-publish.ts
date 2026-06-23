@@ -207,56 +207,33 @@ async function main() {
       await editorPage.waitForTimeout(800)
     }
 
-    // 진단: contenteditable 요소 목록 (locator는 Shadow DOM 관통)
-    const allCE = editorCtx.locator('[contenteditable]')
-    const ceCount = await allCE.count().catch(() => 0)
-    console.log('  contenteditable count (shadow DOM 포함):', ceCount)
-    for (let i = 0; i < Math.min(ceCount, 6); i++) {
-      const cel = allCE.nth(i)
-      const isVis = await cel.isVisible().catch(() => false)
-      const ariaH = await cel.getAttribute('aria-hidden').catch(() => null)
-      const role = await cel.getAttribute('role').catch(() => null)
-      console.log('    [' + i + '] visible=' + isVis + ' ariaHidden=' + ariaH + ' role=' + role)
-    }
-
-    // 방법 1: contenteditable 중 aria-hidden=true 제외, 첫 번째가 제목
-    // Playwright locator는 Shadow DOM 관통 → getByRole과 달리 role 무관하게 찾음
-    const titleCE = editorCtx.locator('[contenteditable]:not([aria-hidden="true"])').first()
-    if (await titleCE.isVisible({ timeout: 3000 }).catch(() => false)) {
-      console.log('  contenteditable 제목 발견 → 클릭 후 입력')
-      await titleCE.click()
-      await editorPage.waitForTimeout(200)
-      await editorPage.keyboard.type(TITLE)
-      console.log('  제목 입력 완료 (contenteditable locator)')
-      return
-    }
-
-    // 방법 2: getByRole('textbox').first() — 본문이면 Tab으로 앞 요소로 이동
-    const textboxCount = await editorCtx.getByRole('textbox').count().catch(() => 0)
-    console.log('  textbox count:', textboxCount)
-    if (textboxCount === 1) {
-      // 본문 textbox에 포커스 후 Shift+Tab으로 제목으로 이동
-      const bodyTextbox = editorCtx.getByRole('textbox').first()
-      if (await bodyTextbox.isVisible({ timeout: 2000 }).catch(() => false)) {
-        await bodyTextbox.click()
-        await editorPage.keyboard.press('Shift+Tab')
-        await editorPage.waitForTimeout(200)
-        await editorPage.keyboard.type(TITLE)
-        console.log('  제목 입력 완료 (Shift+Tab to title)')
-        return
-      }
-    }
-
-    // 방법 3: 좌표 클릭 fallback (y≈225 = "제목" placeholder 중심)
-    const iframeBox = await editorPage.locator('iframe').first().boundingBox()
-    if (!iframeBox) throw new Error('iframe 위치를 찾지 못했습니다.')
-    const titleX = iframeBox.x + 315
-    const titleY = iframeBox.y + 225
-    console.log('  좌표 클릭: (' + titleX + ', ' + titleY + ')')
-    await editorPage.mouse.click(titleX, titleY)
-    await editorPage.waitForTimeout(200)
+    // 방법 1: 에디터 로드 직후 기본 포커스가 제목에 있을 수 있음 — 바로 타이핑
+    // (SmartEditor ONE은 새 글 작성 시 제목에 포커스 위치)
+    const beforeTitle = await editorCtx.getByRole('textbox').first().inputValue().catch(() => '')
     await editorPage.keyboard.type(TITLE)
-    console.log('  제목 입력 완료 (좌표)')
+    await editorPage.waitForTimeout(300)
+    const afterTitle = await editorCtx.getByRole('textbox').first().inputValue().catch(() => '')
+    if (afterTitle !== beforeTitle) {
+      console.log('  직접 타이핑 후 textbox 값 변화 감지 (body에 입력됨일 수 있음, 계속 진행)')
+    }
+
+    // 제목 영역 확인: 제목 placeholder가 사라졌는지 accessibility 트리로 확인
+    const titlePlaceholderGone = await editorCtx.locator('text=제목').first().isHidden({ timeout: 1000 }).catch(() => false)
+    if (!titlePlaceholderGone) {
+      // 제목 placeholder 여전히 보임 → 제목 영역 클릭 필요
+      console.log('  제목 placeholder 남아있음 → 제목 영역 직접 클릭 시도')
+
+      // 방법 2: 좌표 클릭 (y≈225 = "제목" placeholder 중심)
+      const iframeBox = await editorPage.locator('iframe[src*="PostWriteForm"]').first().boundingBox()
+      if (!iframeBox) throw new Error('iframe 위치를 찾지 못했습니다.')
+      const titleX = iframeBox.x + 315
+      const titleY = iframeBox.y + 225
+      console.log('  좌표 클릭: (' + titleX + ', ' + titleY + ')')
+      await editorPage.mouse.click(titleX, titleY)
+      await editorPage.waitForTimeout(300)
+      await editorPage.keyboard.type(TITLE)
+    }
+    console.log('  제목 입력 완료')
   })
 
   // ── 5단계: 본문 입력 ──────────────────────────
