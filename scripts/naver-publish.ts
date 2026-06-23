@@ -134,9 +134,14 @@ async function main() {
     // ① 임시저장 draft 모달 처리 ("작성 중인 글이 있습니다" → 취소 = 새 글 작성)
     const draftModal = editorCtx.locator('text=작성 중인 글이 있습니다').first()
     if (await draftModal.isVisible({ timeout: 3000 }).catch(() => false)) {
-      console.log('  임시저장 draft 모달 감지 → 취소 클릭 (새 글 작성)')
-      await editorCtx.locator('button:text-is("취소")').first().click()
+      console.log('  임시저장 draft 모달 감지 → Escape로 닫기 (새 글 작성)')
+      await editorPage.keyboard.press('Escape')
       await editorPage.waitForTimeout(800)
+      // Escape가 안 될 경우: 모달 첫 번째 버튼(취소) 좌표 클릭 (x≈580, y≈434)
+      if (await draftModal.isVisible({ timeout: 1000 }).catch(() => false)) {
+        await editorPage.mouse.click(580, 434)
+        await editorPage.waitForTimeout(600)
+      }
     }
 
     // ② 도움말 패널 닫기 + floating 패널 숨기기
