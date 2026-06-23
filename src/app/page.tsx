@@ -62,6 +62,8 @@ export default function BlogFormPage() {
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [result, setResult] = useState<GenerateResult | null>(null)
+  const [isPublishing, setIsPublishing] = useState(false)
+  const [publishStatus, setPublishStatus] = useState<{ type: 'success' | 'error'; message: string; step?: string } | null>(null)
 
   const dragIndexRef = useRef<number | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
