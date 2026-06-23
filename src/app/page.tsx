@@ -547,26 +547,81 @@ export default function BlogFormPage() {
               />
             </section>
 
+            {/* 발행 상태 메시지 */}
+            {publishStatus && (
+              <div className={`rounded-xl px-4 py-3 text-sm font-medium ${
+                publishStatus.type === 'success'
+                  ? 'bg-green-50 text-green-700 ring-1 ring-green-200'
+                  : 'bg-red-50 text-red-700 ring-1 ring-red-200'
+              }`}>
+                {publishStatus.message}
+                {publishStatus.step && (
+                  <span className="ml-2 text-xs opacity-70">(실패 단계: {publishStatus.step})</span>
+                )}
+              </div>
+            )}
+
             {/* 액션 버튼 */}
             <div className="flex gap-3 pb-10">
               <button
                 type="button"
-                onClick={() => setResult(null)}
-                className="flex-1 rounded-2xl border border-gray-200 bg-white py-3.5 text-sm font-semibold text-gray-700 shadow-sm transition hover:border-gray-300 hover:bg-gray-50 active:scale-[0.98]"
+                onClick={() => { setResult(null); setPublishStatus(null) }}
+                disabled={isPublishing}
+                className="flex-1 rounded-2xl border border-gray-200 bg-white py-3.5 text-sm font-semibold text-gray-700 shadow-sm transition hover:border-gray-300 hover:bg-gray-50 active:scale-[0.98] disabled:opacity-50"
               >
                 수정하기
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  console.log('발행 예정:', result.title, result.content)
-                  alert('발행 기능은 다음 단계에서 연동됩니다.\n(제목: ' + result.title + ')')
+                disabled={isPublishing}
+                onClick={async () => {
+                  setIsPublishing(true)
+                  setPublishStatus(null)
+                  try {
+                    // 사진 → base64 변환
+                    const images = await Promise.all(
+                      result.photos.map(p => new Promise<string>((resolve, reject) => {
+                        const reader = new FileReader()
+                        reader.onload = () => resolve((reader.result as string).split(',')[1])
+                        reader.onerror = reject
+                        reader.readAsDataURL(p.file)
+                      }))
+                    )
+                    const res = await fetch('/api/publish', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ title: result.title, content: result.content, images }),
+                    })
+                    const data = await res.json() as { success: boolean; url?: string; error?: string; lastStep?: string }
+                    if (data.success) {
+                      setPublishStatus({ type: 'success', message: '발행 완료! 네이버 블로그에서 확인해보세요.' })
+                    } else {
+                      setPublishStatus({ type: 'error', message: data.error ?? '발행 실패', step: data.lastStep })
+                    }
+                  } catch (err) {
+                    setPublishStatus({ type: 'error', message: err instanceof Error ? err.message : '알 수 없는 오류' })
+                  } finally {
+                    setIsPublishing(false)
+                  }
                 }}
-                className="flex-1 rounded-2xl bg-indigo-500 py-3.5 text-sm font-semibold text-white shadow-md shadow-indigo-200 transition hover:bg-indigo-600 active:scale-[0.98]"
+                className="flex-1 rounded-2xl bg-indigo-500 py-3.5 text-sm font-semibold text-white shadow-md shadow-indigo-200 transition hover:bg-indigo-600 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
               >
-                올리기
+                {isPublishing ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                    발행 중...
+                  </span>
+                ) : '올리기'}
               </button>
             </div>
+            {isPublishing && (
+              <p className="pb-6 text-center text-xs text-gray-400">
+                네이버에 발행 중이에요... 브라우저 창이 잠깐 뜰 거예요
+              </p>
+            )}
           </div>
         )}
       </div>
