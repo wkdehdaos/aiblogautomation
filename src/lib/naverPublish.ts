@@ -164,23 +164,29 @@ export async function publishToNaver(
       await editorPage.keyboard.type(title)
     })
 
-    // 5. 본문 입력 (HTML 클립보드 붙여넣기)
+    // 5. 본문 입력
     await step('본문입력', async () => {
       const iframeBox = await editorPage.locator('iframe[src*="PostWriteForm"]').first().boundingBox()
       if (!iframeBox) throw new Error('iframe 위치를 찾지 못했습니다.')
       await editorPage.mouse.click(iframeBox.x + 315, iframeBox.y + 350)
       await editorPage.waitForTimeout(300)
 
-      // HTML을 클립보드에 써서 붙여넣기 → 서식 유지
-      await editorPage.evaluate(async (html: string) => {
-        const item = new ClipboardItem({
-          'text/html': new Blob([html], { type: 'text/html' }),
-          'text/plain': new Blob([html.replace(/<[^>]*>/g, '')], { type: 'text/plain' }),
-        })
-        await navigator.clipboard.write([item])
-      }, content)
-      await editorPage.keyboard.press('Control+V')
-      await editorPage.waitForTimeout(1000)
+      // HTML 태그 제거 후 텍스트 입력
+      const plainText = content
+        .replace(/<br\s*\/?>/gi, '\n')
+        .replace(/<\/p>/gi, '\n')
+        .replace(/<\/h[1-6]>/gi, '\n')
+        .replace(/<\/li>/gi, '\n')
+        .replace(/<[^>]*>/g, '')
+        .replace(/&nbsp;/g, ' ')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&amp;/g, '&')
+        .replace(/\n{3,}/g, '\n\n')
+        .trim()
+
+      await editorPage.keyboard.type(plainText)
+      await editorPage.waitForTimeout(500)
     })
 
     // 6. 이미지 업로드 (선택)
