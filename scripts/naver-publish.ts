@@ -137,8 +137,29 @@ async function main() {
   // ── 3단계: 에디터 로드 대기 + 프레임 탐지 ──────
   let editorCtx: Page | Frame = editorPage
   await runStep(editorPage, '에디터로드대기', async () => {
-    // 네트워크 안정 후 에디터 프레임 탐색
     await editorPage.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {})
+    await editorPage.waitForTimeout(2000) // JS 초기화 여유
+
+    // 진단: 전체 프레임의 contenteditable 목록 출력
+    for (const frame of editorPage.frames()) {
+      try {
+        const info = await frame.evaluate(() =>
+          Array.from(document.querySelectorAll('[contenteditable]')).map(el => ({
+            tag: el.tagName,
+            id: (el as HTMLElement).id,
+            cls: (el as HTMLElement).className.slice(0, 60),
+            role: el.getAttribute('role'),
+            ariaHidden: el.getAttribute('aria-hidden'),
+            allow: el.getAttribute('allow'),
+          }))
+        )
+        if (info.length > 0) {
+          console.log(`  [frame] ${frame.url().slice(0, 80)}`)
+          info.forEach((e, i) => console.log(`    [${i}] ${JSON.stringify(e)}`))
+        }
+      } catch {}
+    }
+
     editorCtx = await findEditorFrame(editorPage)
   })
 
