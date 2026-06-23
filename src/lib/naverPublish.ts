@@ -164,46 +164,59 @@ export async function publishToNaver(
       await editorPage.keyboard.type(title)
     })
 
-    // 5. 본문 입력
+    // 5. 본문 + 이미지 순서대로 입력
     await step('본문입력', async () => {
       const iframeBox = await editorPage.locator('iframe[src*="PostWriteForm"]').first().boundingBox()
       if (!iframeBox) throw new Error('iframe 위치를 찾지 못했습니다.')
       await editorPage.mouse.click(iframeBox.x + 315, iframeBox.y + 350)
       await editorPage.waitForTimeout(300)
 
-      // HTML 태그 제거 후 텍스트 입력
-      const plainText = content
-        .replace(/<br\s*\/?>/gi, '\n')
-        .replace(/<\/p>/gi, '\n')
-        .replace(/<\/h[1-6]>/gi, '\n')
-        .replace(/<\/li>/gi, '\n')
-        .replace(/<[^>]*>/g, '')
-        .replace(/&nbsp;/g, ' ')
-        .replace(/&lt;/g, '<')
-        .replace(/&gt;/g, '>')
-        .replace(/&amp;/g, '&')
-        .replace(/\n{3,}/g, '\n\n')
-        .trim()
+      const stripHtml = (html: string) =>
+        html
+          .replace(/<br\s*\/?>/gi, '\n')
+          .replace(/<\/p>/gi, '\n')
+          .replace(/<\/h[1-6]>/gi, '\n')
+          .replace(/<\/li>/gi, '\n')
+          .replace(/<[^>]*>/g, '')
+          .replace(/&nbsp;/g, ' ')
+          .replace(/&lt;/g, '<')
+          .replace(/&gt;/g, '>')
+          .replace(/&amp;/g, '&')
+          .replace(/\n{3,}/g, '\n\n')
+          .trim()
 
-      await editorPage.keyboard.type(plainText)
-      await editorPage.waitForTimeout(500)
-    })
+      // <!--IMAGE_N--> 마커 기준으로 분할 → 텍스트와 이미지 교차 입력
+      const parts = content.split(/(<!--IMAGE_\d+-->)/)
 
-    // 6. 이미지 업로드 (선택)
-    if (imagePaths.length > 0) {
-      await step('이미지업로드', async () => {
-        const imageBtn = editorCtx.locator('.se-image-toolbar-button').first()
-        if (!await imageBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
-          throw new Error('이미지 버튼을 찾지 못했습니다.')
+      for (const part of parts) {
+        const markerMatch = part.match(/<!--IMAGE_(\d+)-->/)
+        if (markerMatch) {
+          // 이미지 삽입
+          const imgIndex = parseInt(markerMatch[1]) - 1
+          if (imgIndex < imagePaths.length) {
+            const imageBtn = editorCtx.locator('.se-image-toolbar-button').first()
+            if (await imageBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
+              const [fileChooser] = await Promise.all([
+                editorPage.waitForEvent('filechooser', { timeout: 5000 }),
+                imageBtn.click(),
+              ])
+              await fileChooser.setFiles([imagePaths[imgIndex]])
+              await editorPage.waitForTimeout(3000)
+              // 이미지 다음 줄로 이동
+              await editorPage.keyboard.press('End')
+              await editorPage.keyboard.press('Enter')
+            }
+          }
+        } else {
+          // 텍스트 입력
+          const text = stripHtml(part)
+          if (text) {
+            await editorPage.keyboard.type(text)
+            await editorPage.waitForTimeout(100)
+          }
         }
-        const [fileChooser] = await Promise.all([
-          editorPage.waitForEvent('filechooser', { timeout: 5000 }),
-          imageBtn.click(),
-        ])
-        await fileChooser.setFiles(imagePaths)
-        await editorPage.waitForTimeout(3000)
-      })
-    }
+      }
+    })
 
     // 7. 발행 버튼 클릭
     await step('발행버튼클릭', async () => {
