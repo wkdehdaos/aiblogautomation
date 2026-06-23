@@ -241,11 +241,19 @@ async function main() {
 
   // ── 7단계: 발행 버튼 클릭 ─────────────────────
   await runStep(editorPage, '발행버튼클릭', async () => {
-    const publishBtn = editorPage.locator(
-      'button:has-text("발행"), button.btn_publish, .publish_btn, button[class*="publish"]'
-    ).first()
-    if (!await publishBtn.isVisible({ timeout: 5000 })) throw new Error('발행 버튼을 찾지 못했습니다.')
-    await publishBtn.click()
+    // 발행 버튼: 메인 페이지 또는 PostWriteForm iframe 안에 있을 수 있음
+    const sel = 'button:has-text("발행"), button.btn_publish, .publish_btn, button[class*="publish"]'
+    const inMain = editorPage.locator(sel).first()
+    const inFrame = editorCtx.locator(sel).first()
+
+    let btn = inMain
+    if (!await inMain.isVisible({ timeout: 3000 }).catch(() => false)) {
+      if (!await inFrame.isVisible({ timeout: 3000 }).catch(() => false)) {
+        throw new Error('발행 버튼을 찾지 못했습니다. 스크린샷을 확인해 주세요.')
+      }
+      btn = inFrame
+    }
+    await btn.click()
     console.log('  발행 버튼 클릭')
   })
 
