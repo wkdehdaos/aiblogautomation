@@ -42,26 +42,28 @@ export async function POST(req: NextRequest) {
 
   const MAX_IMAGE_BYTES = 4 * 1024 * 1024 // 4MB
 
-  const imageBlocks: Anthropic.ImageBlockParam[] = (
+  const imageBlocks = (
     await Promise.all(
-      photoFiles.map(async (file) => {
+      photoFiles.map(async (file): Promise<Anthropic.ImageBlockParam | null> => {
         if (!VALID_IMAGE_TYPES.has(file.type) && file.type !== '') {
           console.warn(`[generate] 지원하지 않는 이미지 형식 건너뜀: ${file.type} (${file.name})`)
           return null
         }
-        const rawBuffer = Buffer.from(await file.arrayBuffer())
-        let finalBuffer = rawBuffer
+        const rawBuffer = Buffer.from(await file.arrayBuffer() as ArrayBuffer)
+        let finalBuffer: Buffer
         if (rawBuffer.length > MAX_IMAGE_BYTES) {
           finalBuffer = await sharp(rawBuffer)
             .resize(1600, 1600, { fit: 'inside', withoutEnlargement: true })
             .jpeg({ quality: 85 })
             .toBuffer()
+        } else {
+          finalBuffer = rawBuffer
         }
         return {
-          type: 'image' as const,
+          type: 'image',
           source: {
-            type: 'base64' as const,
-            media_type: 'image/jpeg' as const,
+            type: 'base64',
+            media_type: 'image/jpeg',
             data: finalBuffer.toString('base64'),
           },
         }
