@@ -47,7 +47,8 @@ async function findEditorCtx(page: Page): Promise<LocatorCtx> {
 export async function publishToNaver(
   title: string,
   content: string,
-  imagePaths: string[]
+  imagePaths: string[],
+  font = '나눔고딕'
 ): Promise<PublishResult> {
   const blogId = process.env.NAVER_BLOG_ID
   let lastStep = '초기화'
