@@ -20,6 +20,8 @@ export async function POST(req: NextRequest) {
     return Response.json({ error: 'ANTHROPIC_API_KEY가 설정되지 않았습니다.' }, { status: 500 })
   }
 
+  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+
   try {
   const formData = await req.formData()
 
