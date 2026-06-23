@@ -131,8 +131,11 @@ async function main() {
     await editorPage.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {})
     await editorPage.waitForTimeout(3000)
 
-    // 도움말 팝업이 있으면 닫기
-    await editorPage.locator('.btn_help_close, [aria-label*="닫기"][class*="help"], button:has-text("닫기"):near(.layer_help)').first().click({ timeout: 2000 }).catch(() => {})
+    // 도움말 팝업 닫기
+    await editorPage.locator('.btn_help_close, button:has-text("닫기")').first().click({ timeout: 2000 }).catch(() => {})
+    // 글감 검색 등 floating 패널이 열려있으면 Escape로 닫기
+    await editorPage.keyboard.press('Escape')
+    await editorPage.waitForTimeout(500)
 
     // 진단: 입력 요소 목록
     for (const frame of editorPage.frames()) {
