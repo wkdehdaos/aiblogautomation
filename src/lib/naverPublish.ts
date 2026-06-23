@@ -259,6 +259,52 @@ export async function publishToNaver(
       }
     })
 
+    // 6-2. 위치 지도 삽입 (location 있을 때만)
+    if (location) {
+      await step('위치지도삽입', async () => {
+        // 본문 끝으로 커서 이동 후 엔터
+        await editorPage.keyboard.press('Control+End')
+        await editorPage.waitForTimeout(300)
+        await editorPage.keyboard.press('Enter')
+
+        // 장소 추가 버튼 클릭
+        const mapBtn = editorCtx.locator('.se-map-toolbar-button').first()
+        if (!await mapBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
+          throw new Error('장소 추가 버튼을 찾지 못했습니다.')
+        }
+        await mapBtn.click()
+        await editorPage.waitForTimeout(1500)
+
+        // 검색창에 위치 입력
+        const searchInput = editorCtx.locator(
+          'input[placeholder*="장소"], input[placeholder*="검색"], input[type="search"], .se-map-search-input'
+        ).first()
+        if (await searchInput.isVisible({ timeout: 5000 }).catch(() => false)) {
+          await searchInput.fill(location)
+          await searchInput.press('Enter')
+          await editorPage.waitForTimeout(2000)
+
+          // 첫 번째 검색 결과 클릭
+          const firstResult = editorCtx.locator(
+            '.se-map-item, .se-place-item, [class*="map_item"], [class*="place_item"]'
+          ).first()
+          if (await firstResult.isVisible({ timeout: 5000 }).catch(() => false)) {
+            await firstResult.click()
+            await editorPage.waitForTimeout(500)
+          }
+
+          // 확인/삽입 버튼 클릭
+          const confirmBtn = editorCtx.locator(
+            'button:has-text("확인"), button:has-text("삽입"), button:has-text("추가")'
+          ).last()
+          if (await confirmBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
+            await confirmBtn.click()
+            await editorPage.waitForTimeout(1000)
+          }
+        }
+      })
+    }
+
     // 7. 발행 버튼 클릭
     await step('발행버튼클릭', async () => {
       const popupClose = editorCtx.locator('.se-popup-flayer-close-button').first()
