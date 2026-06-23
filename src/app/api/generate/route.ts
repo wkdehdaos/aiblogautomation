@@ -1,8 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { NextRequest } from 'next/server'
 
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
-
 const LENGTH_MAP: Record<string, string> = {
   short: '500자 이내',
   medium: '1000자 내외',
