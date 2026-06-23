@@ -155,14 +155,14 @@ async function main() {
 
   // ── 5단계: 본문 입력 ──────────────────────────
   await runStep(editorPage, '본문입력', async () => {
-    // 두 번째 contenteditable이 본문인 경우가 많음
-    const allEditable = editorCtx.locator('[contenteditable="true"]')
+    const allEditable = editorCtx.locator(EDITABLE)
     const count = await allEditable.count()
-    console.log(`  contenteditable 개수: ${count}`)
+    console.log(`  editable 요소 개수: ${count}`)
 
-    // 제목(index 0) 이후 본문(index 1 이상) 클릭
+    // 제목(index 0) 다음이 본문
     const body = count >= 2 ? allEditable.nth(1) : allEditable.first()
     if (!await body.isVisible({ timeout: 3000 })) throw new Error('본문 에디터를 찾지 못했습니다.')
+    await body.scrollIntoViewIfNeeded()
     await body.click()
     await body.pressSequentially(CONTENT)
     console.log('  본문 입력 완료')
