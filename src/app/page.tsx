@@ -36,6 +36,7 @@ const INITIAL_FORM: BlogFormData = {
   title: '',
   businessName: '',
   businessInfo: '',
+  location: '',
   photos: [],
   keywords: [],
   lengthOption: 'medium',
