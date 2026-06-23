@@ -164,35 +164,59 @@ async function main() {
 
   // ── 4단계: 제목 입력 ──────────────────────────
   await runStep(editorPage, '제목입력', async () => {
-    // 글감 패널 닫기 (여전히 열려 있을 수 있음)
-    await editorCtx.locator('.se-floating-material-menu').first().isVisible({ timeout: 1000 })
-      .then(async visible => {
-        if (visible) await editorPage.keyboard.press('Escape')
-      }).catch(() => {})
+    // 글감 패널이 아직 열려있으면 Escape 재시도
+    const pfFrame2 = editorPage.frames().find(f => f.url().includes('PostWriteForm'))
+    const panelVisible = await editorCtx.locator('.se-floating-material-menu.se-is-expanded').isVisible({ timeout: 1000 }).catch(() => false)
+    if (panelVisible && pfFrame2) {
+      await pfFrame2.press('body', 'Escape').catch(() => {})
+      await editorPage.waitForTimeout(500)
+    }
 
-    // 제목: placeholder="제목" 또는 aria-label에 "제목" 포함
-    const titleBox = editorCtx.getByPlaceholder('제목').or(
-      editorCtx.getByRole('textbox', { name: /제목/i })
-    ).first()
-    const fallback = editorCtx.getByRole('textbox').filter({ hasNot: editorCtx.locator('[name="material-search"]') }).first()
+    // 제목: placeholder="제목"으로 정확히 찾기
+    const titleBox = editorCtx.getByPlaceholder('제목').first()
+    const isTitle = await titleBox.isVisible({ timeout: 5000 }).catch(() => false)
 
-    const target = await titleBox.isVisible({ timeout: 5000 }).catch(() => false) ? titleBox : fallback
-    await target.waitFor({ timeout: 10000 })
-    await target.click()
-    await target.pressSequentially(TITLE, { delay: 30 })
-    console.log('  제목 입력 완료')
+    if (isTitle) {
+      await titleBox.click()
+      await titleBox.pressSequentially(TITLE, { delay: 30 })
+      console.log('  제목 입력 완료 (placeholder=제목)')
+    } else {
+      // fallback: name이 material-search가 아닌 첫 번째 textbox
+      const boxes = editorCtx.getByRole('textbox')
+      const total = await boxes.count()
+      for (let i = 0; i < total; i++) {
+        const box = boxes.nth(i)
+        const name = await box.getAttribute('name').catch(() => '')
+        if (name !== 'material-search') {
+          await box.click()
+          await box.pressSequentially(TITLE, { delay: 30 })
+          console.log(`  제목 입력 완료 (textbox[${i}])`)
+          break
+        }
+      }
+    }
   })
 
   // ── 5단계: 본문 입력 ──────────────────────────
   await runStep(editorPage, '본문입력', async () => {
-    // material-search 제외 후 두 번째 textbox = 본문
-    const allBoxes = editorCtx.getByRole('textbox').filter({ hasNot: editorCtx.locator('[name="material-search"]') })
-    const count = await allBoxes.count()
-    console.log(`  textbox 개수 (검색 제외): ${count}`)
-    const bodyBox = count >= 2 ? allBoxes.nth(1) : allBoxes.first()
+    const boxes = editorCtx.getByRole('textbox')
+    const total = await boxes.count()
+    console.log(`  textbox 개수: ${total}`)
+
+    // material-search 제외하고 두 번째 편집 영역 = 본문
+    let bodyIdx = 0
+    let titleFound = false
+    for (let i = 0; i < total; i++) {
+      const name = await boxes.nth(i).getAttribute('name').catch(() => '')
+      if (name === 'material-search') continue
+      if (!titleFound) { titleFound = true; continue } // 첫 번째 = 제목
+      bodyIdx = i
+      break
+    }
+    const bodyBox = boxes.nth(bodyIdx)
     await bodyBox.click()
     await bodyBox.pressSequentially(CONTENT, { delay: 30 })
-    console.log('  본문 입력 완료')
+    console.log(`  본문 입력 완료 (textbox[${bodyIdx}])`)
   })
 
   // ── 6단계: 이미지 업로드 (선택) ───────────────
