@@ -78,6 +78,12 @@ export async function POST(req: NextRequest) {
 - 문단 사이사이 이모지 활용으로 시각적 포인트
 
 ## HTML 구조 (반드시 이 형식으로)
+<div style="background:#f8f9fa;border-left:4px solid #5c6ac4;padding:16px 20px;margin:16px 0;border-radius:0 8px 8px 0">
+  <p style="margin:0;font-size:15px;color:#444;line-height:1.8">
+    ✏️ <strong>한 줄 요약</strong>: 업체의 핵심 매력을 한 문장으로. 읽는 사람이 바로 가고 싶게.
+  </p>
+</div>
+
 <p>도입부: 방문 계기나 상황을 감성적으로 시작. 날씨, 동행, 기대감 등 포함.</p>
 
 <h2>✨ [첫 번째 섹션 — 첫인상/외관/분위기]</h2>
