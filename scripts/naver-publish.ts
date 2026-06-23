@@ -1,8 +1,8 @@
-import { chromium, Page, Frame } from 'playwright'
+import { chromium, Page, FrameLocator } from 'playwright'
 import path from 'path'
 import fs from 'fs'
 
-// .env.local / .en.local 파일을 수동으로 로드 (tsx는 자동 로드 안 함)
+// .env.local / .en.local 로드 (tsx는 자동 로드 안 함)
 function loadEnvLocal() {
   for (const filename of ['.env.local', '.en.local']) {
     const envPath = path.resolve(process.cwd(), filename)
@@ -57,47 +57,44 @@ async function runStep(page: Page, label: string, fn: () => Promise<void>) {
   }
 }
 
-// 에디터 textbox를 찾아 반환 — getByRole은 Shadow DOM을 피어스함
-// Frame 타입에는 getByRole이 없으므로 Page | Frame 대신 항상 Page 기반으로 작동하되
-// PostWriteForm frame을 frameLocator로 래핑해 반환
-async function findEditorLocatorContext(page: Page): Promise<Page | ReturnType<Page['frameLocator']>> {
-  // 1) 메인 페이지에서 textbox 탐색
-  const inMain = await page.getByRole('textbox').first().isVisible({ timeout: 5000 }).catch(() => false)
-  if (inMain) {
+// SmartEditor ONE은 Shadow DOM을 쓸 수 있어 getByRole('textbox')로 탐색
+// FrameLocator와 Page 둘 다 getByRole을 지원함
+type LocatorCtx = Page | FrameLocator
+
+async function findEditorCtx(page: Page): Promise<LocatorCtx> {
+  // 1) 메인 페이지
+  if (await page.getByRole('textbox').first().isVisible({ timeout: 5000 }).catch(() => false)) {
     console.log('  에디터: 메인 페이지')
     return page
   }
 
-  // 2) PostWriteForm을 frameLocator로 접근 (Shadow DOM 포함)
-  const pfUrl = page.frames().find(f => f.url().includes('PostWriteForm'))?.url()
-  if (pfUrl) {
-    // src 속성이 없는 srcdoc iframe일 수 있으므로 URL 기반으로 찾기
-    const fl = page.frameLocator('iframe[src*="PostWriteForm"], iframe')
-    try {
-      await fl.first().getByRole('textbox').first().waitFor({ timeout: 15000 })
-      console.log('  에디터: frameLocator (PostWriteForm)')
-      return fl.first()
-    } catch {}
+  // 2) PostWriteForm iframe (URL 확인 후 frameLocator)
+  const hasPf = page.frames().some(f => f.url().includes('PostWriteForm'))
+  if (hasPf) {
+    const fl = page.frameLocator('iframe[src*="PostWriteForm"], iframe').first()
+    if (await fl.getByRole('textbox').first().isVisible({ timeout: 15000 }).catch(() => false)) {
+      console.log('  에디터: PostWriteForm frameLocator')
+      return fl
+    }
   }
 
-  // 3) 모든 iframe 중 첫 번째 frameLocator 시도
-  const anyFl = page.frameLocator('iframe')
-  try {
-    await anyFl.first().getByRole('textbox').first().waitFor({ timeout: 5000 })
-    console.log('  에디터: frameLocator (첫 번째 iframe)')
-    return anyFl.first()
-  } catch {}
+  // 3) 모든 iframe 중 textbox가 있는 첫 번째
+  const fl = page.frameLocator('iframe').first()
+  if (await fl.getByRole('textbox').first().isVisible({ timeout: 5000 }).catch(() => false)) {
+    console.log('  에디터: 첫 번째 iframe')
+    return fl
+  }
 
-  throw new Error('에디터 textbox를 찾지 못했습니다. 도움말 팝업을 닫았는지 확인하세요.')
+  throw new Error('에디터를 찾지 못했습니다.')
 }
 
 async function main() {
   if (!BLOG_ID) {
-    console.error('NAVER_BLOG_ID 환경변수가 설정되지 않았습니다. .env.local 또는 .en.local에 추가해 주세요.')
+    console.error('NAVER_BLOG_ID 환경변수가 설정되지 않았습니다.')
     process.exit(1)
   }
   if (!fs.existsSync(SESSION_PATH)) {
-    console.error(`세션 파일이 없습니다: ${SESSION_PATH}\nnpm run naver-login 으로 먼저 로그인해 주세요.`)
+    console.error(`세션 파일 없음: ${SESSION_PATH}\nnpm run naver-login 으로 먼저 로그인하세요.`)
     process.exit(1)
   }
 
@@ -128,83 +125,56 @@ async function main() {
     console.log(`  에디터 URL: ${editorPage.url()}`)
   })
 
-  // ── 3단계: 에디터 로드 대기 + 프레임 탐지 ──────
-  let editorCtx: Page | Frame = editorPage
+  // ── 3단계: 에디터 로드 대기 ────────────────────
+  let editorCtx: LocatorCtx = editorPage
   await runStep(editorPage, '에디터로드대기', async () => {
     await editorPage.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {})
-    await editorPage.waitForTimeout(6000) // SmartEditor ONE JS 초기화 여유
+    await editorPage.waitForTimeout(3000)
 
-    // 진단: 전체 프레임의 입력 요소 목록 출력
+    // 도움말 팝업이 있으면 닫기
+    await editorPage.locator('.btn_help_close, [aria-label*="닫기"][class*="help"], button:has-text("닫기"):near(.layer_help)').first().click({ timeout: 2000 }).catch(() => {})
+
+    // 진단: 입력 요소 목록
     for (const frame of editorPage.frames()) {
       try {
-        const info = await frame.evaluate(() => {
-          const toInfo = (el: Element) => ({
+        const info = await frame.evaluate(() =>
+          Array.from(document.querySelectorAll('[contenteditable], [role="textbox"], textarea')).map(el => ({
             tag: el.tagName,
-            id: (el as HTMLElement).id || undefined,
-            cls: el.className?.toString().slice(0, 80) || undefined,
+            cls: el.className?.toString().slice(0, 60) || undefined,
             role: el.getAttribute('role') || undefined,
             ariaHidden: el.getAttribute('aria-hidden') || undefined,
             allow: el.getAttribute('allow') || undefined,
-            type: el.getAttribute('type') || undefined,
-          })
-          return [
-            ...Array.from(document.querySelectorAll('[contenteditable]')).map(toInfo),
-            ...Array.from(document.querySelectorAll('[role="textbox"]')).map(toInfo),
-            ...Array.from(document.querySelectorAll('textarea:not([aria-hidden])')).map(toInfo),
-          ]
-        })
+          }))
+        )
         if (info.length > 0) {
-          console.log(`  [frame] ${frame.url().slice(0, 90)}`)
+          console.log(`  [frame] ${frame.url().slice(0, 80)}`)
           info.forEach((e, i) => console.log(`    [${i}] ${JSON.stringify(e)}`))
         }
       } catch {}
     }
 
-    editorCtx = await findEditorFrame(editorPage)
+    editorCtx = await findEditorCtx(editorPage)
   })
 
   // ── 4단계: 제목 입력 ──────────────────────────
   await runStep(editorPage, '제목입력', async () => {
-    const candidates = [
-      `${EDITABLE}[aria-label*="제목"]`,
-      `${EDITABLE}[class*="title"]`,
-      `.se-title-input ${EDITABLE}`,
-    ]
-    let done = false
-    for (const sel of candidates) {
-      const el = editorCtx.locator(sel).first()
-      if (await el.isVisible({ timeout: 2000 }).catch(() => false)) {
-        await el.scrollIntoViewIfNeeded()
-        await el.click()
-        await el.pressSequentially(TITLE)
-        console.log(`  제목 입력 완료 (${sel})`)
-        done = true
-        break
-      }
-    }
-    if (!done) {
-      // 마지막 수단: aria-hidden 제외 첫 번째 contenteditable
-      const first = editorCtx.locator(EDITABLE).first()
-      if (!await first.isVisible({ timeout: 3000 })) throw new Error('제목 입력란을 찾지 못했습니다.')
-      await first.scrollIntoViewIfNeeded()
-      await first.click()
-      await first.pressSequentially(TITLE)
-      console.log('  제목 입력 완료 (첫 번째 editable)')
-    }
+    // SmartEditor ONE: textbox[0] = 제목
+    const titleBox = editorCtx.getByRole('textbox').first()
+    await titleBox.waitFor({ timeout: 10000 })
+    await titleBox.click()
+    await titleBox.pressSequentially(TITLE, { delay: 30 })
+    console.log('  제목 입력 완료')
   })
 
   // ── 5단계: 본문 입력 ──────────────────────────
   await runStep(editorPage, '본문입력', async () => {
-    const allEditable = editorCtx.locator(EDITABLE)
-    const count = await allEditable.count()
-    console.log(`  editable 요소 개수: ${count}`)
-
-    // 제목(index 0) 다음이 본문
-    const body = count >= 2 ? allEditable.nth(1) : allEditable.first()
-    if (!await body.isVisible({ timeout: 3000 })) throw new Error('본문 에디터를 찾지 못했습니다.')
-    await body.scrollIntoViewIfNeeded()
-    await body.click()
-    await body.pressSequentially(CONTENT)
+    // SmartEditor ONE: textbox[1] = 본문
+    const boxes = editorCtx.getByRole('textbox')
+    const count = await boxes.count()
+    console.log(`  textbox 개수: ${count}`)
+    const bodyBox = count >= 2 ? boxes.nth(1) : boxes.first()
+    await bodyBox.click()
+    await bodyBox.pressSequentially(CONTENT, { delay: 30 })
     console.log('  본문 입력 완료')
   })
 
@@ -212,17 +182,16 @@ async function main() {
   if (IMAGE_PATHS.length > 0) {
     await runStep(editorPage, '이미지업로드', async () => {
       const imageBtn = editorPage.locator(
-        'button[aria-label*="사진"], button[title*="사진"], .se-toolbar-item-IMAGE, button[class*="image"]'
+        'button[aria-label*="사진"], button[title*="사진"], .se-toolbar-item-IMAGE'
       ).first()
-      if (!await imageBtn.isVisible({ timeout: 5000 })) throw new Error('이미지 업로드 버튼을 찾지 못했습니다.')
-
+      if (!await imageBtn.isVisible({ timeout: 5000 })) throw new Error('이미지 버튼을 찾지 못했습니다.')
       const [fileChooser] = await Promise.all([
         editorPage.waitForEvent('filechooser', { timeout: 5000 }),
         imageBtn.click(),
       ])
       await fileChooser.setFiles(IMAGE_PATHS)
-      console.log(`  이미지 ${IMAGE_PATHS.length}개 첨부 완료`)
       await editorPage.waitForTimeout(3000)
+      console.log(`  이미지 ${IMAGE_PATHS.length}개 첨부 완료`)
     })
   } else {
     console.log('\n[이미지 업로드] IMAGE_PATHS 비어있어 건너뜁니다.')
