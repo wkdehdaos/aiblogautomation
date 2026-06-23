@@ -57,44 +57,38 @@ async function runStep(page: Page, label: string, fn: () => Promise<void>) {
   }
 }
 
-// aria-hidden·clipboard 헬퍼를 제외한 실제 편집 가능 요소
-const EDITABLE = '[contenteditable="true"]:not([aria-hidden]):not([allow="clipboard-read"])'
-// role="textbox" 가 있는 편집 요소 (SmartEditor ONE 기준)
-const EDITABLE_TEXTBOX = `${EDITABLE}[role="textbox"], ${EDITABLE}`
-
-// 에디터가 있는 프레임을 찾아 반환
-async function findEditorFrame(page: Page): Promise<Page | Frame> {
-  // PostWriteForm iframe 먼저 탐색 (URL로 직접 찾기)
-  const pfFrame = page.frames().find(f => f.url().includes('PostWriteForm'))
-  if (pfFrame) {
-    console.log(`  PostWriteForm iframe 발견, 에디터 초기화 대기...`)
-    try {
-      await pfFrame.waitForSelector(EDITABLE, { timeout: 20000 })
-      console.log(`  에디터: PostWriteForm iframe`)
-      return pfFrame
-    } catch {
-      console.log('  PostWriteForm에서 editable 못 찾음, 전체 프레임 탐색...')
-    }
-  }
-
-  // 메인 페이지 확인
-  try {
-    await page.waitForSelector(EDITABLE, { timeout: 5000 })
+// 에디터 textbox를 찾아 반환 — getByRole은 Shadow DOM을 피어스함
+// Frame 타입에는 getByRole이 없으므로 Page | Frame 대신 항상 Page 기반으로 작동하되
+// PostWriteForm frame을 frameLocator로 래핑해 반환
+async function findEditorLocatorContext(page: Page): Promise<Page | ReturnType<Page['frameLocator']>> {
+  // 1) 메인 페이지에서 textbox 탐색
+  const inMain = await page.getByRole('textbox').first().isVisible({ timeout: 5000 }).catch(() => false)
+  if (inMain) {
     console.log('  에디터: 메인 페이지')
     return page
-  } catch {}
+  }
 
-  // 모든 iframe 순회
-  for (const frame of page.frames()) {
-    if (frame === page.mainFrame()) continue
+  // 2) PostWriteForm을 frameLocator로 접근 (Shadow DOM 포함)
+  const pfUrl = page.frames().find(f => f.url().includes('PostWriteForm'))?.url()
+  if (pfUrl) {
+    // src 속성이 없는 srcdoc iframe일 수 있으므로 URL 기반으로 찾기
+    const fl = page.frameLocator('iframe[src*="PostWriteForm"], iframe')
     try {
-      await frame.waitForSelector(EDITABLE, { timeout: 3000 })
-      console.log(`  에디터: iframe (${frame.url()})`)
-      return frame
+      await fl.first().getByRole('textbox').first().waitFor({ timeout: 15000 })
+      console.log('  에디터: frameLocator (PostWriteForm)')
+      return fl.first()
     } catch {}
   }
 
-  throw new Error('에디터(contenteditable)를 어느 프레임에서도 찾지 못했습니다.')
+  // 3) 모든 iframe 중 첫 번째 frameLocator 시도
+  const anyFl = page.frameLocator('iframe')
+  try {
+    await anyFl.first().getByRole('textbox').first().waitFor({ timeout: 5000 })
+    console.log('  에디터: frameLocator (첫 번째 iframe)')
+    return anyFl.first()
+  } catch {}
+
+  throw new Error('에디터 textbox를 찾지 못했습니다. 도움말 팝업을 닫았는지 확인하세요.')
 }
 
 async function main() {
