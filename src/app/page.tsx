@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 
 type LengthOption = 'short' | 'medium' | 'long' | 'custom'
 type ToneOption = 'friendly' | 'professional' | 'informative'
@@ -11,7 +11,7 @@ interface PhotoItem {
   previewUrl: string
 }
 
-interface FormData {
+interface BlogFormData {
   title: string
   businessName: string
   businessInfo: string
@@ -25,7 +25,13 @@ interface FormData {
   mustExclude: string
 }
 
-const INITIAL_FORM: FormData = {
+interface GenerateResult {
+  title: string
+  content: string
+  photos: PhotoItem[]
+}
+
+const INITIAL_FORM: BlogFormData = {
   title: '',
   businessName: '',
   businessInfo: '',
@@ -39,14 +45,35 @@ const INITIAL_FORM: FormData = {
   mustExclude: '',
 }
 
+function renderContentWithImages(content: string, photos: PhotoItem[]): string {
+  let rendered = content
+  photos.forEach((photo, i) => {
+    rendered = rendered.replace(
+      `<!--IMAGE_${i + 1}-->`,
+      `<img src="${photo.previewUrl}" alt="사진 ${i + 1}" style="width:100%;border-radius:12px;margin:16px 0;" />`
+    )
+  })
+  return rendered
+}
+
 export default function BlogFormPage() {
-  const [form, setForm] = useState<FormData>(INITIAL_FORM)
+  const [form, setForm] = useState<BlogFormData>(INITIAL_FORM)
   const [keywordInput, setKeywordInput] = useState('')
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
+  const [result, setResult] = useState<GenerateResult | null>(null)
+
   const dragIndexRef = useRef<number | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const previewRef = useRef<HTMLDivElement>(null)
 
-  const set = <K extends keyof FormData>(key: K, value: FormData[K]) =>
+  useEffect(() => {
+    if (result) {
+      previewRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  }, [result])
+
+  const set = <K extends keyof BlogFormData>(key: K, value: BlogFormData[K]) =>
     setForm((prev) => ({ ...prev, [key]: value }))
 
   // 키워드
@@ -91,13 +118,10 @@ export default function BlogFormPage() {
     dragIndexRef.current = index
   }
 
-  const handleDragOver = useCallback(
-    (e: React.DragEvent, index: number) => {
-      e.preventDefault()
-      setDragOverIndex(index)
-    },
-    []
-  )
+  const handleDragOver = useCallback((e: React.DragEvent, index: number) => {
+    e.preventDefault()
+    setDragOverIndex(index)
+  }, [])
 
   const handleDrop = (e: React.DragEvent, dropIndex: number) => {
     e.preventDefault()
@@ -116,14 +140,39 @@ export default function BlogFormPage() {
     setDragOverIndex(null)
   }
 
-  // 제출
-  const handleSubmit = (e: React.FormEvent) => {
+  // 제출 → API 호출
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    const output = {
-      ...form,
-      photos: form.photos.map((p) => ({ name: p.file.name, size: p.file.size })),
+    setIsLoading(true)
+    setResult(null)
+
+    try {
+      const fd = new FormData()
+      fd.append('businessName', form.businessName)
+      fd.append('businessInfo', form.businessInfo)
+      fd.append('keywords', JSON.stringify(form.keywords))
+      fd.append('lengthOption', form.lengthOption)
+      fd.append('customLength', form.customLength)
+      fd.append('tone', form.tone)
+      fd.append('seoOptimize', String(form.seoOptimize))
+      fd.append('mustInclude', form.mustInclude)
+      fd.append('mustExclude', form.mustExclude)
+      fd.append('title', form.title)
+      form.photos.forEach((p) => fd.append('photos', p.file))
+
+      const res = await fetch('/api/generate', { method: 'POST', body: fd })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error((err as { error?: string }).error ?? `HTTP ${res.status}`)
+      }
+      const data = (await res.json()) as { title: string; content: string }
+      setResult({ title: data.title, content: data.content, photos: form.photos })
+    } catch (err) {
+      console.error(err)
+      alert(`글 생성 중 오류가 발생했습니다.\n${err instanceof Error ? err.message : ''}`)
+    } finally {
+      setIsLoading(false)
     }
-    console.log('블로그 자동작성 폼 데이터:', output)
   }
 
   const inputClass =
@@ -147,7 +196,6 @@ export default function BlogFormPage() {
           <section className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-gray-100">
             <h2 className="mb-5 text-base font-semibold text-gray-800">기본 정보</h2>
             <div className="space-y-4">
-              {/* 제목 */}
               <div>
                 <label className={labelClass}>
                   제목 <span className="text-xs font-normal text-gray-400">(선택)</span>
@@ -161,7 +209,6 @@ export default function BlogFormPage() {
                 />
               </div>
 
-              {/* 업체명 */}
               <div>
                 <label className={labelClass}>
                   업체명 <span className="text-red-400">*</span>
@@ -176,7 +223,6 @@ export default function BlogFormPage() {
                 />
               </div>
 
-              {/* 업체 정보 */}
               <div>
                 <label className={labelClass}>
                   업체 정보 <span className="text-red-400">*</span>
@@ -185,7 +231,9 @@ export default function BlogFormPage() {
                   required
                   rows={5}
                   className={`${inputClass} resize-none`}
-                  placeholder={'특징, 영업시간, 위치, 메뉴 등 자유롭게 입력해 주세요.\n예) 영업시간: 오전 9시 ~ 오후 10시\n위치: 서울시 마포구 합정역 2번 출구 도보 3분\n대표 메뉴: 아메리카노 4,500원'}
+                  placeholder={
+                    '특징, 영업시간, 위치, 메뉴 등 자유롭게 입력해 주세요.\n예) 영업시간: 오전 9시 ~ 오후 10시\n위치: 서울시 마포구 합정역 2번 출구 도보 3분\n대표 메뉴: 아메리카노 4,500원'
+                  }
                   value={form.businessInfo}
                   onChange={(e) => set('businessInfo', e.target.value)}
                 />
@@ -228,7 +276,7 @@ export default function BlogFormPage() {
                     onDrop={(e) => handleDrop(e, index)}
                     onDragEnd={handleDragEnd}
                     className={`group relative aspect-square cursor-grab overflow-hidden rounded-xl transition ${
-                      dragOverIndex === index ? 'ring-2 ring-indigo-400 ring-offset-1 scale-95' : ''
+                      dragOverIndex === index ? 'scale-95 ring-2 ring-indigo-400 ring-offset-1' : ''
                     }`}
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -247,7 +295,12 @@ export default function BlogFormPage() {
                       className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-white/90 text-gray-600 opacity-0 shadow transition hover:bg-red-50 hover:text-red-500 group-hover:opacity-100"
                     >
                       <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2.5}
+                          d="M6 18L18 6M6 6l12 12"
+                        />
                       </svg>
                     </button>
                   </div>
@@ -294,7 +347,12 @@ export default function BlogFormPage() {
                           className="flex h-4 w-4 items-center justify-center rounded-full text-indigo-400 hover:bg-indigo-200 hover:text-indigo-700"
                         >
                           <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2.5}
+                              d="M6 18L18 6M6 6l12 12"
+                            />
                           </svg>
                         </button>
                       </span>
@@ -327,7 +385,9 @@ export default function BlogFormPage() {
                     >
                       {opt.label}
                       {opt.desc && (
-                        <span className={`ml-1 text-xs ${form.lengthOption === opt.value ? 'text-indigo-100' : 'text-gray-400'}`}>
+                        <span
+                          className={`ml-1 text-xs ${form.lengthOption === opt.value ? 'text-indigo-100' : 'text-gray-400'}`}
+                        >
                           {opt.desc}
                         </span>
                       )}
@@ -428,15 +488,84 @@ export default function BlogFormPage() {
           {/* 제출 버튼 */}
           <button
             type="submit"
-            className="w-full rounded-2xl bg-indigo-500 py-4 text-base font-semibold text-white shadow-md shadow-indigo-200 transition hover:bg-indigo-600 active:scale-[0.98]"
+            disabled={isLoading}
+            className="w-full rounded-2xl bg-indigo-500 py-4 text-base font-semibold text-white shadow-md shadow-indigo-200 transition hover:bg-indigo-600 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
           >
-            블로그 글 자동 작성하기
+            {isLoading ? (
+              <span className="flex items-center justify-center gap-2">
+                <svg
+                  className="h-5 w-5 animate-spin"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                  />
+                </svg>
+                AI가 글을 작성하고 있어요...
+              </span>
+            ) : (
+              '블로그 글 자동 작성하기'
+            )}
           </button>
 
           <p className="pb-4 text-center text-xs text-gray-400">
             <span className="text-red-400">*</span> 표시는 필수 입력 항목입니다
           </p>
         </form>
+
+        {/* 미리보기 섹션 */}
+        {result && (
+          <div ref={previewRef} className="mt-10 space-y-6">
+            <div className="flex items-center gap-3">
+              <div className="h-px flex-1 bg-gray-200" />
+              <span className="text-sm font-medium text-gray-500">생성 결과 미리보기</span>
+              <div className="h-px flex-1 bg-gray-200" />
+            </div>
+
+            {/* 미리보기 카드 */}
+            <section className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-gray-100">
+              {/* 제목 */}
+              <h2 className="mb-6 text-xl font-bold text-gray-900">{result.title}</h2>
+
+              {/* 본문 (HTML 렌더링, 마커 위치에 실제 이미지 삽입) */}
+              <div
+                className="text-sm leading-relaxed text-gray-700
+                  [&_h2]:mb-2 [&_h2]:mt-6 [&_h2]:text-lg [&_h2]:font-bold [&_h2]:text-gray-900
+                  [&_h3]:mb-1 [&_h3]:mt-4 [&_h3]:text-base [&_h3]:font-semibold [&_h3]:text-gray-800
+                  [&_li]:mt-1 [&_p]:mt-2 [&_p]:leading-relaxed
+                  [&_strong]:font-semibold [&_strong]:text-gray-900
+                  [&_ul]:mt-2 [&_ul]:list-disc [&_ul]:pl-5"
+                dangerouslySetInnerHTML={{
+                  __html: renderContentWithImages(result.content, result.photos),
+                }}
+              />
+            </section>
+
+            {/* 액션 버튼 */}
+            <div className="flex gap-3 pb-10">
+              <button
+                type="button"
+                onClick={() => setResult(null)}
+                className="flex-1 rounded-2xl border border-gray-200 bg-white py-3.5 text-sm font-semibold text-gray-700 shadow-sm transition hover:border-gray-300 hover:bg-gray-50 active:scale-[0.98]"
+              >
+                수정하기
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  console.log('발행 예정:', result.title, result.content)
+                }}
+                className="flex-1 rounded-2xl bg-indigo-500 py-3.5 text-sm font-semibold text-white shadow-md shadow-indigo-200 transition hover:bg-indigo-600 active:scale-[0.98]"
+              >
+                올리기
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
