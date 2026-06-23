@@ -558,6 +558,7 @@ export default function BlogFormPage() {
                 type="button"
                 onClick={() => {
                   console.log('발행 예정:', result.title, result.content)
+                  alert('발행 기능은 다음 단계에서 연동됩니다.\n(제목: ' + result.title + ')')
                 }}
                 className="flex-1 rounded-2xl bg-indigo-500 py-3.5 text-sm font-semibold text-white shadow-md shadow-indigo-200 transition hover:bg-indigo-600 active:scale-[0.98]"
               >
