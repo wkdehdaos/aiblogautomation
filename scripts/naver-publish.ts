@@ -164,59 +164,50 @@ async function main() {
 
   // ── 4단계: 제목 입력 ──────────────────────────
   await runStep(editorPage, '제목입력', async () => {
-    // 글감 패널이 아직 열려있으면 Escape 재시도
-    const pfFrame2 = editorPage.frames().find(f => f.url().includes('PostWriteForm'))
-    const panelVisible = await editorCtx.locator('.se-floating-material-menu.se-is-expanded').isVisible({ timeout: 1000 }).catch(() => false)
-    if (panelVisible && pfFrame2) {
-      await pfFrame2.press('body', 'Escape').catch(() => {})
-      await editorPage.waitForTimeout(500)
-    }
+    const pfFrame = editorPage.frames().find(f => f.url().includes('PostWriteForm'))
+    if (!pfFrame) throw new Error('PostWriteForm 프레임을 찾지 못했습니다.')
 
-    // 제목: placeholder="제목"으로 정확히 찾기
-    const titleBox = editorCtx.getByPlaceholder('제목').first()
-    const isTitle = await titleBox.isVisible({ timeout: 5000 }).catch(() => false)
-
-    if (isTitle) {
-      await titleBox.click()
-      await titleBox.pressSequentially(TITLE, { delay: 30 })
-      console.log('  제목 입력 완료 (placeholder=제목)')
-    } else {
-      // fallback: name이 material-search가 아닌 첫 번째 textbox
-      const boxes = editorCtx.getByRole('textbox')
-      const total = await boxes.count()
-      for (let i = 0; i < total; i++) {
-        const box = boxes.nth(i)
-        const name = await box.getAttribute('name').catch(() => '')
-        if (name !== 'material-search') {
-          await box.click()
-          await box.pressSequentially(TITLE, { delay: 30 })
-          console.log(`  제목 입력 완료 (textbox[${i}])`)
-          break
-        }
-      }
-    }
+    // JS로 floating 패널 숨기고 제목 영역 클릭
+    await pfFrame.evaluate(() => {
+      // floating 글감 패널 제거
+      document.querySelectorAll('.se-floating-material-menu, .se-floating-search').forEach(
+        el => ((el as HTMLElement).style.display = 'none')
+      )
+      // 제목 영역 클릭 (Shadow DOM 밖의 컨테이너)
+      const titleEl = document.querySelector<HTMLElement>(
+        '.se-title-input, .se-section-title, [class*="title-input"]'
+      )
+      titleEl?.click()
+      titleEl?.focus()
+    })
+    await editorPage.waitForTimeout(300)
+    await editorPage.keyboard.type(TITLE)
+    console.log('  제목 입력 완료')
   })
 
   // ── 5단계: 본문 입력 ──────────────────────────
   await runStep(editorPage, '본문입력', async () => {
-    const boxes = editorCtx.getByRole('textbox')
-    const total = await boxes.count()
-    console.log(`  textbox 개수: ${total}`)
+    const pfFrame = editorPage.frames().find(f => f.url().includes('PostWriteForm'))
+    if (!pfFrame) throw new Error('PostWriteForm 프레임을 찾지 못했습니다.')
 
-    // material-search 제외하고 두 번째 편집 영역 = 본문
-    let bodyIdx = 0
-    let titleFound = false
-    for (let i = 0; i < total; i++) {
-      const name = await boxes.nth(i).getAttribute('name').catch(() => '')
-      if (name === 'material-search') continue
-      if (!titleFound) { titleFound = true; continue } // 첫 번째 = 제목
-      bodyIdx = i
-      break
+    // Tab으로 제목 → 본문 이동
+    await editorPage.keyboard.press('Tab')
+    await editorPage.waitForTimeout(300)
+
+    // 혹은 본문 영역 클릭 (class 기반)
+    const focused = await pfFrame.evaluate(() => {
+      const bodyEl = document.querySelector<HTMLElement>(
+        '.se-main-container .se-component, .se-section-text, [class*="editor-body"], .ProseMirror'
+      )
+      if (bodyEl) { bodyEl.click(); bodyEl.focus(); return true }
+      return false
+    })
+    if (!focused) {
+      console.log('  본문 영역을 JS로 못 찾아 Tab 키로 진행')
     }
-    const bodyBox = boxes.nth(bodyIdx)
-    await bodyBox.click()
-    await bodyBox.pressSequentially(CONTENT, { delay: 30 })
-    console.log(`  본문 입력 완료 (textbox[${bodyIdx}])`)
+    await editorPage.waitForTimeout(300)
+    await editorPage.keyboard.type(CONTENT)
+    console.log('  본문 입력 완료')
   })
 
   // ── 6단계: 이미지 업로드 (선택) ───────────────
