@@ -222,13 +222,14 @@ async function main() {
 
   // ── 5단계: 본문 입력 ──────────────────────────
   await runStep(editorPage, '본문입력', async () => {
-    // Tab은 제목 내에서 머무르는 경우가 있어 본문 textbox를 직접 클릭
-    const bodyTextbox = editorCtx.getByRole('textbox').first()
-    await bodyTextbox.click()
+    const pfFrame = editorPage.frames().find(f => f.url().includes('PostWriteForm'))
+    if (!pfFrame) throw new Error('PostWriteForm 프레임을 찾지 못했습니다.')
+
+    // 본문 영역 좌표 클릭 (제목 구분선 아래 y≈350)
+    const iframeBox2 = await editorPage.locator('iframe[src*="PostWriteForm"]').first().boundingBox()
+    if (!iframeBox2) throw new Error('iframe 위치를 찾지 못했습니다.')
+    await editorPage.mouse.click(iframeBox2.x + 315, iframeBox2.y + 350)
     await editorPage.waitForTimeout(300)
-    // 기존 내용(이전 draft 등) 전체 선택 후 교체
-    await editorPage.keyboard.press('Control+A')
-    await editorPage.waitForTimeout(100)
     await editorPage.keyboard.type(CONTENT)
     console.log('  본문 입력 완료')
   })
