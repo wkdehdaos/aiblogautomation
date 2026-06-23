@@ -131,20 +131,31 @@ async function main() {
     await editorPage.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {})
     await editorPage.waitForTimeout(3000)
 
-    // 도움말 패널 닫기 (X 버튼 클릭 or 좌표)
-    const helpClose = editorCtx.locator('button[aria-label*="닫기"], button[title*="닫기"]').last()
-    if (await helpClose.isVisible({ timeout: 1000 }).catch(() => false)) {
-      await helpClose.click()
-    } else {
-      // 스크린샷 기준 우상단 X 버튼 좌표 (도움말 패널)
-      await editorPage.mouse.click(1224, 42).catch(() => {})
+    // ① 임시저장 draft 모달 처리 ("작성 중인 글이 있습니다" → 취소 = 새 글 작성)
+    const draftModal = editorCtx.locator('text=작성 중인 글이 있습니다').first()
+    if (await draftModal.isVisible({ timeout: 3000 }).catch(() => false)) {
+      console.log('  임시저장 draft 모달 감지 → 취소 클릭 (새 글 작성)')
+      await editorCtx.locator('button:has-text("취소")').first().click()
+      await editorPage.waitForTimeout(800)
     }
-    await editorPage.waitForTimeout(400)
-    // PostWriteForm 프레임 내부에 Escape 전송 → 글감 패널 닫기
+
+    // ② 도움말 패널 닫기 (PostWriteForm 내 X 버튼)
     const pfFrame = editorPage.frames().find(f => f.url().includes('PostWriteForm'))
     if (pfFrame) {
-      await pfFrame.press('body', 'Escape').catch(() => {})
-      await editorPage.waitForTimeout(400)
+      const helpX = pfFrame.locator('button[aria-label*="닫기"], button.btn_help_close').first()
+      if (await helpX.isVisible({ timeout: 1000 }).catch(() => false)) {
+        await helpX.click()
+      } else {
+        // 스크린샷 기준 우상단 X 좌표 (viewport 절대 좌표)
+        await editorPage.mouse.click(1224, 42)
+      }
+      await editorPage.waitForTimeout(500)
+      // 글감 floating 패널도 JS로 숨기기
+      await pfFrame.evaluate(() => {
+        document.querySelectorAll<HTMLElement>('.se-floating-material-menu, .se-floating-search').forEach(
+          el => { el.style.display = 'none' }
+        )
+      })
     }
 
     // 진단: 입력 요소 목록
