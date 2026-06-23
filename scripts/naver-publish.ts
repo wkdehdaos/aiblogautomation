@@ -252,7 +252,20 @@ async function main() {
 
   // ── 7단계: 발행 버튼 클릭 ─────────────────────
   await runStep(editorPage, '발행버튼클릭', async () => {
-    // 발행 버튼: 메인 페이지 또는 PostWriteForm iframe 안에 있을 수 있음
+    // 진단: PostWriteForm 안 버튼 목록 출력
+    const pfFrame = editorPage.frames().find(f => f.url().includes('PostWriteForm'))
+    if (pfFrame) {
+      const btns = await pfFrame.evaluate(() =>
+        Array.from(document.querySelectorAll('button, a[role="button"]')).map(el => ({
+          text: el.textContent?.trim().slice(0, 30),
+          cls: el.className?.toString().slice(0, 60),
+          aria: el.getAttribute('aria-label'),
+        })).filter(b => b.text || b.aria)
+      )
+      console.log('  PostWriteForm 버튼 목록:')
+      btns.forEach(b => console.log(`    ${JSON.stringify(b)}`))
+    }
+
     const sel = 'button:has-text("발행"), button.btn_publish, .publish_btn, button[class*="publish"]'
     const inMain = editorPage.locator(sel).first()
     const inFrame = editorCtx.locator(sel).first()
