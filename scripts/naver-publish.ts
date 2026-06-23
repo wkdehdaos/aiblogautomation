@@ -171,7 +171,7 @@ async function main() {
     const titleBox = editorCtx.getByPlaceholder('제목').or(
       editorCtx.getByRole('textbox', { name: /제목/i })
     ).first()
-    const fallback = editorCtx.getByRole('textbox').filter({ hasNOT: editorCtx.locator('[name="material-search"]') }).first()
+    const fallback = editorCtx.getByRole('textbox').filter({ hasNot: editorCtx.locator('[name="material-search"]') }).first()
 
     const target = await titleBox.isVisible({ timeout: 5000 }).catch(() => false) ? titleBox : fallback
     await target.waitFor({ timeout: 10000 })
@@ -183,7 +183,7 @@ async function main() {
   // ── 5단계: 본문 입력 ──────────────────────────
   await runStep(editorPage, '본문입력', async () => {
     // material-search 제외 후 두 번째 textbox = 본문
-    const allBoxes = editorCtx.getByRole('textbox').filter({ hasNOT: editorCtx.locator('[name="material-search"]') })
+    const allBoxes = editorCtx.getByRole('textbox').filter({ hasNot: editorCtx.locator('[name="material-search"]') })
     const count = await allBoxes.count()
     console.log(`  textbox 개수 (검색 제외): ${count}`)
     const bodyBox = count >= 2 ? allBoxes.nth(1) : allBoxes.first()
