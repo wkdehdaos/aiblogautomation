@@ -48,7 +48,8 @@ export async function publishToNaver(
   title: string,
   content: string,
   imagePaths: string[],
-  font = '나눔고딕'
+  font = '나눔고딕',
+  location = ''
 ): Promise<PublishResult> {
   const blogId = process.env.NAVER_BLOG_ID
   let lastStep = '초기화'
