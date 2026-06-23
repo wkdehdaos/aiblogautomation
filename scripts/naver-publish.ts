@@ -343,19 +343,14 @@ async function main() {
       popupBtns.forEach(b => console.log(`    ${JSON.stringify(b)}`))
     }
 
-    // 팝업 내 "발행" 버튼 — toolbar와 구분을 위해 "전체공개" 팝업 내 마지막 버튼
-    // 방법 1: class에 confirm/submit/send 포함
-    let confirmBtn = editorCtx.locator('button[class*="confirm"], button[class*="submit"], button[class*="send_btn"]').filter({ hasText: '발행' }).first()
-    if (!await confirmBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
-      // 방법 2: 모든 "발행" 버튼 중 마지막 (toolbar publish_btn 제외)
-      confirmBtn = editorCtx.locator('button:not([class*="publish_btn"])').filter({ hasText: '발행' }).last()
-    }
-    if (!await confirmBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
-      // 방법 3: 팝업 "발행" 버튼 좌표 클릭 (스크린샷 07 기준 x≈1172, y≈554)
-      console.log('  fallback: 좌표로 발행 버튼 클릭')
-      await editorPage.mouse.click(1172, 554)
-    } else {
+    // 팝업 내 "발행" 버튼 — 확인된 클래스: confirm_btn__WEaBq
+    const confirmBtn = editorCtx.locator('button[class*="confirm_btn"]').first()
+    if (await confirmBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
       await confirmBtn.click()
+    } else {
+      // fallback: 좌표 클릭 (스크린샷 07 기준 x≈1172, y≈554)
+      console.log('  fallback: 좌표로 발행 확인 클릭')
+      await editorPage.mouse.click(1172, 554)
     }
     console.log('  최종 발행 확인 클릭')
     await editorPage.waitForNavigation({ timeout: 15000 }).catch(() => {})
