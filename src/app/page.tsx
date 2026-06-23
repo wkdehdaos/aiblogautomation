@@ -252,7 +252,7 @@ export default function BlogFormPage() {
                   type="text"
                   className={inputClass}
                   placeholder="예: 서울 마포구 합정역 2번 출구"
-                  value={form.location}
+                  value={form.location ?? ''}
                   onChange={(e) => set('location', e.target.value)}
                 />
               </div>
