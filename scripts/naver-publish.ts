@@ -131,13 +131,20 @@ async function main() {
     await editorPage.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {})
     await editorPage.waitForTimeout(3000)
 
-    // 도움말 팝업 닫기
-    await editorPage.locator('.btn_help_close, button:has-text("닫기")').first().click({ timeout: 2000 }).catch(() => {})
+    // 도움말 패널 닫기 (X 버튼 클릭 or 좌표)
+    const helpClose = editorCtx.locator('button[aria-label*="닫기"], button[title*="닫기"]').last()
+    if (await helpClose.isVisible({ timeout: 1000 }).catch(() => false)) {
+      await helpClose.click()
+    } else {
+      // 스크린샷 기준 우상단 X 버튼 좌표 (도움말 패널)
+      await editorPage.mouse.click(1224, 42).catch(() => {})
+    }
+    await editorPage.waitForTimeout(400)
     // PostWriteForm 프레임 내부에 Escape 전송 → 글감 패널 닫기
     const pfFrame = editorPage.frames().find(f => f.url().includes('PostWriteForm'))
     if (pfFrame) {
       await pfFrame.press('body', 'Escape').catch(() => {})
-      await editorPage.waitForTimeout(500)
+      await editorPage.waitForTimeout(400)
     }
 
     // 진단: 입력 요소 목록
