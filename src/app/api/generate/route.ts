@@ -156,12 +156,13 @@ export async function POST(req: NextRequest) {
       ...imageBlocks,
     ]
 
-    const response = await client.messages.create({
+    const stream = client.messages.stream({
       model: 'claude-sonnet-4-6',
       max_tokens: 4096,
       system: systemPrompt,
       messages: [{ role: 'user', content: userContent }],
     })
+    const response = await stream.finalMessage()
 
     const raw = response.content[0].type === 'text' ? response.content[0].text : ''
     const jsonMatch = raw.match(/\{[\s\S]*\}/)
