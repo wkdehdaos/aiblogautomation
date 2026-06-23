@@ -170,8 +170,11 @@ export default function BlogFormPage() {
         const err = await res.json().catch(() => ({}))
         throw new Error((err as { error?: string }).error ?? `HTTP ${res.status}`)
       }
-      const data = (await res.json()) as { title: string; content: string }
-      setResult({ title: data.title, content: data.content, photos: form.photos })
+      const data = (await res.json()) as { title: string; content: string; successIndices?: number[] }
+      const resultPhotos = data.successIndices
+        ? data.successIndices.map((i) => form.photos[i]).filter(Boolean)
+        : form.photos
+      setResult({ title: data.title, content: data.content, photos: resultPhotos })
     } catch (err) {
       console.error(err)
       alert(`글 생성 중 오류가 발생했습니다.\n${err instanceof Error ? err.message : ''}`)
