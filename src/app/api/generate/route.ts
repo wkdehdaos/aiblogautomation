@@ -100,9 +100,9 @@ export async function POST(req: NextRequest) {
 
 <!-- 인용구 강조: 핵심 한 문장, 중간에 1회만 -->
 <div style="text-align:center;margin:28px 0;padding:20px">
-  <p style="font-size:13px;color:#aaa;margin:0">&ldquo;</p>
+  <p style="font-size:13px;color:#aaa;margin:0">"</p>
   <p style="font-size:16px;font-weight:600;color:#333;margin:8px 0;line-height:1.7">핵심 인상이나 느낌을 한 문장으로</p>
-  <p style="font-size:13px;color:#aaa;margin:0">&rdquo;</p>
+  <p style="font-size:13px;color:#aaa;margin:0">"</p>
 </div>
 
 <!--IMAGE_2-->
