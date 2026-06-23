@@ -50,15 +50,10 @@ export async function POST(req: NextRequest) {
           return null
         }
         const rawBuffer = Buffer.from(await file.arrayBuffer() as ArrayBuffer)
-        let finalBuffer: Buffer
-        if (rawBuffer.length > MAX_IMAGE_BYTES) {
-          finalBuffer = await sharp(rawBuffer)
-            .resize(1600, 1600, { fit: 'inside', withoutEnlargement: true })
-            .jpeg({ quality: 85 })
-            .toBuffer()
-        } else {
-          finalBuffer = rawBuffer
-        }
+        const finalBuffer = await sharp(rawBuffer)
+          .resize(1600, 1600, { fit: 'inside', withoutEnlargement: true })
+          .jpeg({ quality: 85 })
+          .toBuffer()
         return {
           type: 'image',
           source: {
