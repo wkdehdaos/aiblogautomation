@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const result = await publishToNaver(title, content, imagePaths, font)
+    const result = await publishToNaver(title, content, imagePaths, font, location)
     return Response.json(result)
   } finally {
     // 임시 파일 정리
