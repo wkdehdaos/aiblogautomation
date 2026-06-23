@@ -196,9 +196,13 @@ async function main() {
     // draft 모달 재확인 (step 3에서 타이밍 문제로 놓쳤을 경우)
     const draftModal2 = editorCtx.locator('text=작성 중인 글이 있습니다').first()
     if (await draftModal2.isVisible({ timeout: 2000 }).catch(() => false)) {
-      console.log('  [step4] draft 모달 감지 → 취소 클릭 (새 글 작성)')
-      await editorCtx.locator('button:text-is("취소")').first().click()
+      console.log('  [step4] draft 모달 감지 → Escape로 닫기')
+      await editorPage.keyboard.press('Escape')
       await editorPage.waitForTimeout(800)
+      if (await draftModal2.isVisible({ timeout: 1000 }).catch(() => false)) {
+        await editorPage.mouse.click(580, 434)
+        await editorPage.waitForTimeout(600)
+      }
     }
 
     // getByRole('textbox') — Shadow DOM 관통, 첫 번째가 제목 영역
