@@ -172,6 +172,20 @@ export async function publishToNaver(
       await editorPage.mouse.click(iframeBox.x + 315, iframeBox.y + 350)
       await editorPage.waitForTimeout(300)
 
+      // 서체 선택
+      const fontBtn = editorCtx.locator('.se-font-family-toolbar-button').first()
+      if (await fontBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
+        await fontBtn.click()
+        await editorPage.waitForTimeout(500)
+        const fontOption = editorCtx.locator(`button:has-text("${font}"), [title="${font}"]`).first()
+        if (await fontOption.isVisible({ timeout: 2000 }).catch(() => false)) {
+          await fontOption.click()
+          await editorPage.waitForTimeout(300)
+        } else {
+          await editorPage.keyboard.press('Escape')
+        }
+      }
+
       const stripHtml = (html: string) =>
         html
           .replace(/<br\s*\/?>/gi, '\n')
