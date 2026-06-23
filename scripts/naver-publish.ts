@@ -262,18 +262,18 @@ async function main() {
       btns.forEach(b => console.log(`    ${JSON.stringify(b)}`))
     }
 
-    const sel = 'button:has-text("발행"), button.btn_publish, .publish_btn, button[class*="publish"]'
-    const inMain = editorPage.locator(sel).first()
-    const inFrame = editorCtx.locator(sel).first()
-
-    let btn = inMain
-    if (!await inMain.isVisible({ timeout: 3000 }).catch(() => false)) {
-      if (!await inFrame.isVisible({ timeout: 3000 }).catch(() => false)) {
+    // publish_btn 클래스 패턴으로 정확히 찾기 (예약 발행 버튼과 구분)
+    const publishBtn = editorCtx.locator('button[class*="publish_btn"]').first()
+    if (!await publishBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
+      // fallback: 텍스트가 정확히 "발행"인 버튼
+      const exact = editorCtx.locator('button').filter({ hasText: /^발행$/ }).first()
+      if (!await exact.isVisible({ timeout: 3000 }).catch(() => false)) {
         throw new Error('발행 버튼을 찾지 못했습니다. 스크린샷을 확인해 주세요.')
       }
-      btn = inFrame
+      await exact.click()
+    } else {
+      await publishBtn.click()
     }
-    await btn.click()
     console.log('  발행 버튼 클릭')
   })
 
