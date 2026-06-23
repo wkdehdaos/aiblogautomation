@@ -2,19 +2,22 @@ import { chromium, Page } from 'playwright'
 import path from 'path'
 import fs from 'fs'
 
-// .env.local 파일을 수동으로 로드 (tsx는 자동 로드 안 함)
+// .env.local / .en.local 파일을 수동으로 로드 (tsx는 자동 로드 안 함)
 function loadEnvLocal() {
-  const envPath = path.resolve(process.cwd(), '.env.local')
-  if (!fs.existsSync(envPath)) return
-  const lines = fs.readFileSync(envPath, 'utf-8').split('\n')
-  for (const line of lines) {
-    const trimmed = line.trim()
-    if (!trimmed || trimmed.startsWith('#')) continue
-    const eqIdx = trimmed.indexOf('=')
-    if (eqIdx === -1) continue
-    const key = trimmed.slice(0, eqIdx).trim()
-    const val = trimmed.slice(eqIdx + 1).trim().replace(/^["']|["']$/g, '')
-    if (key && !(key in process.env)) process.env[key] = val
+  const candidates = ['.env.local', '.en.local']
+  for (const filename of candidates) {
+    const envPath = path.resolve(process.cwd(), filename)
+    if (!fs.existsSync(envPath)) continue
+    const lines = fs.readFileSync(envPath, 'utf-8').split('\n')
+    for (const line of lines) {
+      const trimmed = line.trim()
+      if (!trimmed || trimmed.startsWith('#')) continue
+      const eqIdx = trimmed.indexOf('=')
+      if (eqIdx === -1) continue
+      const key = trimmed.slice(0, eqIdx).trim()
+      const val = trimmed.slice(eqIdx + 1).trim().replace(/^["']|["']$/g, '')
+      if (key && !(key in process.env)) process.env[key] = val
+    }
   }
 }
 loadEnvLocal()
