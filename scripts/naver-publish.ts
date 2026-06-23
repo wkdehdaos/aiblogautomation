@@ -138,23 +138,29 @@ async function main() {
   let editorCtx: Page | Frame = editorPage
   await runStep(editorPage, '에디터로드대기', async () => {
     await editorPage.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {})
-    await editorPage.waitForTimeout(2000) // JS 초기화 여유
+    await editorPage.waitForTimeout(6000) // SmartEditor ONE JS 초기화 여유
 
-    // 진단: 전체 프레임의 contenteditable 목록 출력
+    // 진단: 전체 프레임의 입력 요소 목록 출력
     for (const frame of editorPage.frames()) {
       try {
-        const info = await frame.evaluate(() =>
-          Array.from(document.querySelectorAll('[contenteditable]')).map(el => ({
+        const info = await frame.evaluate(() => {
+          const toInfo = (el: Element) => ({
             tag: el.tagName,
-            id: (el as HTMLElement).id,
-            cls: (el as HTMLElement).className.slice(0, 60),
-            role: el.getAttribute('role'),
-            ariaHidden: el.getAttribute('aria-hidden'),
-            allow: el.getAttribute('allow'),
-          }))
-        )
+            id: (el as HTMLElement).id || undefined,
+            cls: el.className?.toString().slice(0, 80) || undefined,
+            role: el.getAttribute('role') || undefined,
+            ariaHidden: el.getAttribute('aria-hidden') || undefined,
+            allow: el.getAttribute('allow') || undefined,
+            type: el.getAttribute('type') || undefined,
+          })
+          return [
+            ...Array.from(document.querySelectorAll('[contenteditable]')).map(toInfo),
+            ...Array.from(document.querySelectorAll('[role="textbox"]')).map(toInfo),
+            ...Array.from(document.querySelectorAll('textarea:not([aria-hidden])')).map(toInfo),
+          ]
+        })
         if (info.length > 0) {
-          console.log(`  [frame] ${frame.url().slice(0, 80)}`)
+          console.log(`  [frame] ${frame.url().slice(0, 90)}`)
           info.forEach((e, i) => console.log(`    [${i}] ${JSON.stringify(e)}`))
         }
       } catch {}
