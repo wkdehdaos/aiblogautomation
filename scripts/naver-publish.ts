@@ -174,20 +174,23 @@ async function main() {
     const pfFrame = editorPage.frames().find(f => f.url().includes('PostWriteForm'))
     if (!pfFrame) throw new Error('PostWriteForm 프레임을 찾지 못했습니다.')
 
-    // JS로 floating 패널 숨기고 제목 영역 클릭
+    // floating 글감 패널 JS로 숨기기
     await pfFrame.evaluate(() => {
-      // floating 글감 패널 제거
-      document.querySelectorAll('.se-floating-material-menu, .se-floating-search').forEach(
-        el => ((el as HTMLElement).style.display = 'none')
+      document.querySelectorAll<HTMLElement>('.se-floating-material-menu, .se-floating-search').forEach(
+        el => { el.style.display = 'none' }
       )
-      // 제목 영역 클릭 (Shadow DOM 밖의 컨테이너)
-      const titleEl = document.querySelector<HTMLElement>(
-        '.se-title-input, .se-section-title, [class*="title-input"]'
-      )
-      titleEl?.click()
-      titleEl?.focus()
     })
-    await editorPage.waitForTimeout(300)
+
+    // 제목 영역: 스크린샷 기준 "제목" placeholder가 보이는 위치 클릭 (x≈315, y≈245)
+    // 이 좌표는 PostWriteForm iframe 내부 기준이므로 iframe 요소의 위치를 구한 뒤 오프셋 추가
+    const iframeBox = await editorPage.locator('iframe').first().boundingBox()
+    if (!iframeBox) throw new Error('iframe 위치를 찾지 못했습니다.')
+
+    const titleX = iframeBox.x + 315
+    const titleY = iframeBox.y + 245
+    console.log(`  iframe offset: (${iframeBox.x}, ${iframeBox.y}), 제목 클릭: (${titleX}, ${titleY})`)
+    await editorPage.mouse.click(titleX, titleY)
+    await editorPage.waitForTimeout(200)
     await editorPage.keyboard.type(TITLE)
     console.log('  제목 입력 완료')
   })
