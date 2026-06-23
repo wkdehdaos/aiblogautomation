@@ -201,7 +201,32 @@ export async function publishToNaver(
                 imageBtn.click(),
               ])
               await fileChooser.setFiles([imagePaths[imgIndex]])
-              await editorPage.waitForTimeout(3000)
+              await editorPage.waitForTimeout(2000)
+
+              // 사진 레이아웃 선택 팝업 처리 (개별사진 선택 후 삽입)
+              const layoutPopup = editorCtx.locator('.se-photo-upload-layer, .se-popup-photo, [class*="photo_layer"], [class*="photoUpload"]').first()
+              if (await layoutPopup.isVisible({ timeout: 3000 }).catch(() => false)) {
+                // 개별사진 옵션 클릭
+                const singlePhoto = editorCtx.locator(
+                  'button:has-text("개별사진"), label:has-text("개별사진"), [class*="single"], [class*="individual"]'
+                ).first()
+                if (await singlePhoto.isVisible({ timeout: 2000 }).catch(() => false)) {
+                  await singlePhoto.click()
+                  await editorPage.waitForTimeout(300)
+                }
+                // 삽입 확인 버튼
+                const insertBtn = editorCtx.locator(
+                  'button:has-text("삽입"), button:has-text("확인"), button:has-text("적용")'
+                ).first()
+                if (await insertBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
+                  await insertBtn.click()
+                  await editorPage.waitForTimeout(1000)
+                }
+              } else {
+                // 팝업 없이 바로 삽입되는 경우 대기
+                await editorPage.waitForTimeout(2000)
+              }
+
               // 이미지 다음 줄로 이동
               await editorPage.keyboard.press('End')
               await editorPage.keyboard.press('Enter')
