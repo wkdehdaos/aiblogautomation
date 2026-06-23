@@ -51,7 +51,7 @@ function renderContentWithImages(content: string, photos: PhotoItem[]): string {
   let rendered = content
   photos.forEach((photo, i) => {
     rendered = rendered.replace(
-      `<!--IMAGE_${i + 1}-->`,
+      new RegExp(`<!--\\s*IMAGE_${i + 1}\\s*-->`, 'gi'),
       `<img src="${photo.previewUrl}" alt="사진 ${i + 1}" style="width:100%;border-radius:12px;margin:16px 0;" />`
     )
   })
