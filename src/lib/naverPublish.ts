@@ -183,8 +183,14 @@ export async function publishToNaver(
 
     // 5. 본문 입력 (HTML 클립보드 붙여넣기 + 이미지 삽입)
     await step('본문입력', async () => {
-      // Tab으로 제목 → 본문 포커스 이동 (nth 계산 오류 방지)
-      await editorPage.keyboard.press('Tab')
+      // 본문 contenteditable 직접 클릭 (Tab 의존 시 포커스가 제목에 남는 버그 방지)
+      const bodyCE = editorCtx.locator(CE).nth(1)
+      const bodyVisible = await bodyCE.isVisible({ timeout: 5000 }).catch(() => false)
+      if (bodyVisible) {
+        await bodyCE.click({ timeout: 5000 })
+      } else {
+        await editorPage.keyboard.press('Tab')
+      }
       await editorPage.waitForTimeout(500)
 
       // 서체 선택
