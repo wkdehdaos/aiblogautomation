@@ -45,22 +45,24 @@ export async function POST(req: NextRequest) {
   const imageBlocks: Anthropic.ImageBlockParam[] = (
     await Promise.all(
       photoFiles.map(async (file) => {
-        if (!VALID_IMAGE_TYPES.has(file.type)) {
+        if (!VALID_IMAGE_TYPES.has(file.type) && file.type !== '') {
           console.warn(`[generate] 지원하지 않는 이미지 형식 건너뜀: ${file.type} (${file.name})`)
           return null
         }
-        if (file.size > MAX_IMAGE_BYTES) {
-          console.warn(`[generate] 이미지 크기 초과 건너뜀: ${file.size} bytes (${file.name})`)
-          return null
+        const rawBuffer = Buffer.from(await file.arrayBuffer())
+        let finalBuffer = rawBuffer
+        if (rawBuffer.length > MAX_IMAGE_BYTES) {
+          finalBuffer = await sharp(rawBuffer)
+            .resize(1600, 1600, { fit: 'inside', withoutEnlargement: true })
+            .jpeg({ quality: 85 })
+            .toBuffer()
         }
-        const buffer = await file.arrayBuffer()
-        const data = Buffer.from(buffer).toString('base64')
         return {
           type: 'image' as const,
           source: {
             type: 'base64' as const,
-            media_type: file.type as Anthropic.Base64ImageSource['media_type'],
-            data,
+            media_type: 'image/jpeg' as const,
+            data: finalBuffer.toString('base64'),
           },
         }
       })
