@@ -135,7 +135,7 @@ async function main() {
     const draftModal = editorCtx.locator('text=작성 중인 글이 있습니다').first()
     if (await draftModal.isVisible({ timeout: 3000 }).catch(() => false)) {
       console.log('  임시저장 draft 모달 감지 → 취소 클릭 (새 글 작성)')
-      await editorCtx.locator('button:has-text("취소")').first().click()
+      await editorCtx.locator('button:text-is("취소")').first().click()
       await editorPage.waitForTimeout(800)
     }
 
@@ -192,7 +192,7 @@ async function main() {
     const draftModal2 = editorCtx.locator('text=작성 중인 글이 있습니다').first()
     if (await draftModal2.isVisible({ timeout: 2000 }).catch(() => false)) {
       console.log('  [step4] draft 모달 감지 → 취소 클릭 (새 글 작성)')
-      await editorCtx.locator('button:has-text("취소")').first().click()
+      await editorCtx.locator('button:text-is("취소")').first().click()
       await editorPage.waitForTimeout(800)
     }
 
