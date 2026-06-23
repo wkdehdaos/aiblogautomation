@@ -86,6 +86,9 @@ export async function POST(req: NextRequest) {
 
 ## HTML 구조 (이 순서와 태그를 반드시 지킬 것)
 
+<!-- 0. 인사 이모지: 딱 하나만, 글 맨 앞에 단독으로 -->
+<p style="font-size:28px;text-align:center;margin:0 0 16px">👋</p>
+
 <!-- 1. 도입 문단: 방문 계기, 날씨·동행·기분 등 감성적 상황 묘사로 시작 -->
 <p style="line-height:1.9;font-size:15px;color:#333">도입 내용...</p>
 
