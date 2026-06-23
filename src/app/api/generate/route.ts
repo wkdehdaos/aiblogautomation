@@ -165,12 +165,14 @@ HTML 형식의 본문
     const response = await stream.finalMessage()
 
     const raw = response.content[0].type === 'text' ? response.content[0].text : ''
-    const jsonMatch = raw.match(/\{[\s\S]*\}/)
-    if (!jsonMatch) {
+    const titleMatch = raw.match(/<<<TITLE>>>\s*([\s\S]*?)\s*<<<CONTENT>>>/)
+    const contentMatch = raw.match(/<<<CONTENT>>>\s*([\s\S]*?)\s*<<<END>>>/)
+    if (!titleMatch || !contentMatch) {
       return Response.json({ error: '응답 파싱 실패' }, { status: 500 })
     }
 
-    const { title, content } = JSON.parse(jsonMatch[0]) as { title: string; content: string }
+    const title = titleMatch[1].trim()
+    const content = contentMatch[1].trim()
     return Response.json({ title, content, successIndices })
   } catch (err) {
     console.error('[generate] error:', err)
