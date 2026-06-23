@@ -279,26 +279,30 @@ async function main() {
 
   // ── 8단계: 공개 설정 팝업 ─────────────────────
   await runStep(editorPage, '공개설정팝업', async () => {
-    await editorPage.waitForSelector(
-      '[class*="publish"], [class*="open-setting"], .layer_publish, .dialog_publish',
-      { timeout: 8000 }
-    )
-    const publicOption = editorPage.locator(
-      'label:has-text("전체공개"), input[value="PUBLIC"] + label, button:has-text("전체공개")'
-    ).first()
-    if (!await publicOption.isVisible({ timeout: 5000 })) throw new Error('전체공개 옵션을 찾지 못했습니다.')
-    await publicOption.click()
-    console.log('  전체공개 선택')
+    // 팝업은 PostWriteForm iframe 내부에 뜸 — "공개 설정" 텍스트로 감지
+    const popup = editorCtx.locator('text=공개 설정').first()
+    if (!await popup.isVisible({ timeout: 10000 }).catch(() => false)) {
+      throw new Error('공개 설정 팝업이 나타나지 않았습니다.')
+    }
+    console.log('  공개 설정 팝업 감지됨')
+
+    // 전체공개 라디오 — 이미 선택되어 있을 수 있어 체크 후 클릭
+    const publicRadio = editorCtx.locator('label:has-text("전체공개"), input[type="radio"][value*="PUBLIC"]').first()
+    if (await publicRadio.isVisible({ timeout: 2000 }).catch(() => false)) {
+      await publicRadio.click().catch(() => {})
+      console.log('  전체공개 선택 (또는 이미 선택됨)')
+    }
   })
 
   // ── 9단계: 최종 발행 확인 ─────────────────────
   await runStep(editorPage, '최종발행확인', async () => {
-    const confirmBtn = editorPage.locator(
-      '.layer_publish button:has-text("발행"), .dialog_publish button:has-text("발행"), [class*="publish"] button[class*="confirm"]'
-    ).first()
-    if (!await confirmBtn.isVisible({ timeout: 5000 })) throw new Error('최종 발행 버튼을 찾지 못했습니다.')
+    // 팝업 내 최종 "발행" 버튼 (텍스트가 정확히 "발행")
+    const confirmBtn = editorCtx.locator('button').filter({ hasText: /^발행$/ }).last()
+    if (!await confirmBtn.isVisible({ timeout: 5000 })) {
+      throw new Error('최종 발행 버튼을 찾지 못했습니다.')
+    }
     await confirmBtn.click()
-    console.log('  최종 발행 확인')
+    console.log('  최종 발행 확인 클릭')
     await editorPage.waitForNavigation({ timeout: 15000 }).catch(() => {})
     console.log(`  발행 후 URL: ${editorPage.url()}`)
   })
