@@ -275,32 +275,67 @@ export async function publishToNaver(
         await mapBtn.click()
         await editorPage.waitForTimeout(1500)
 
-        // 검색창에 위치 입력
-        const searchInput = editorCtx.locator(
-          'input[placeholder*="장소"], input[placeholder*="검색"], input[type="search"], .se-map-search-input'
-        ).first()
+        // 검색창에 위치 입력 — iframe 안팎 모두 시도
+        const searchSelectors = 'input[placeholder*="장소"], input[placeholder*="검색"], input[type="search"], .se-map-search-input'
+        let searchInput = editorCtx.locator(searchSelectors).first()
+        if (!await searchInput.isVisible({ timeout: 3000 }).catch(() => false)) {
+          searchInput = editorPage.locator(searchSelectors).first()
+        }
+
         if (await searchInput.isVisible({ timeout: 5000 }).catch(() => false)) {
           await searchInput.fill(location)
           await searchInput.press('Enter')
-          await editorPage.waitForTimeout(2000)
+          await editorPage.waitForTimeout(2500)
 
-          // 첫 번째 검색 결과 클릭
-          const firstResult = editorCtx.locator(
-            '.se-map-item, .se-place-item, [class*="map_item"], [class*="place_item"]'
-          ).first()
+          // 첫 번째 검색 결과 클릭 — iframe 안팎 모두 시도
+          const resultSelectors = '.se-map-item, .se-place-item, [class*="map_item"], [class*="place_item"], [class*="PlaceItem"], li[class*="item"]'
+          let firstResult = editorCtx.locator(resultSelectors).first()
+          if (!await firstResult.isVisible({ timeout: 3000 }).catch(() => false)) {
+            firstResult = editorPage.locator(resultSelectors).first()
+          }
           if (await firstResult.isVisible({ timeout: 5000 }).catch(() => false)) {
             await firstResult.click()
-            await editorPage.waitForTimeout(500)
-          }
-
-          // 확인/삽입 버튼 클릭
-          const confirmBtn = editorCtx.locator(
-            'button:has-text("확인"), button:has-text("삽입"), button:has-text("추가")'
-          ).last()
-          if (await confirmBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
-            await confirmBtn.click()
             await editorPage.waitForTimeout(1000)
           }
+
+          // 확인/추가/삽입 버튼 — 메인 페이지 → editorCtx 순서로 시도
+          const confirmSelectors = 'button:has-text("추가"), button:has-text("확인"), button:has-text("삽입"), button:has-text("완료")'
+          let confirmClicked = false
+
+          // 1순위: 메인 페이지에서 찾기
+          const confirmBtnPage = editorPage.locator(confirmSelectors).last()
+          if (await confirmBtnPage.isVisible({ timeout: 3000 }).catch(() => false)) {
+            await confirmBtnPage.click()
+            confirmClicked = true
+          }
+
+          // 2순위: editorCtx(iframe)에서 찾기
+          if (!confirmClicked) {
+            const confirmBtnCtx = editorCtx.locator(confirmSelectors).last()
+            if (await confirmBtnCtx.isVisible({ timeout: 3000 }).catch(() => false)) {
+              await confirmBtnCtx.click()
+              confirmClicked = true
+            }
+          }
+
+          // 3순위: 모든 iframe을 순회
+          if (!confirmClicked) {
+            for (const frame of editorPage.frames()) {
+              const btn = frame.locator(confirmSelectors).last()
+              if (await btn.isVisible({ timeout: 1000 }).catch(() => false)) {
+                await btn.click()
+                confirmClicked = true
+                break
+              }
+            }
+          }
+
+          // 4순위: Enter 키 폴백
+          if (!confirmClicked) {
+            await editorPage.keyboard.press('Enter')
+          }
+
+          await editorPage.waitForTimeout(1500)
         }
       })
     }
