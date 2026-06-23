@@ -188,29 +188,19 @@ async function main() {
       )
     })
 
-    // 진단: contenteditable 요소 목록 (Shadow DOM 포함)
-    const editables = await pfFrame.evaluate(() => {
-      const results: {tag: string; cls: string; placeholder?: string; visible: boolean}[] = []
-      function walk(root: Document | Element | ShadowRoot) {
-        const els = root.querySelectorAll('[contenteditable], [data-placeholder]')
-        els.forEach((el) => {
-          results.push({
-            tag: el.tagName,
-            cls: el.className?.toString().slice(0, 80),
-            placeholder: el.getAttribute('data-placeholder') || undefined,
-            visible: (el as HTMLElement).offsetParent !== null,
-          })
-        })
-        root.querySelectorAll('*').forEach(el => {
-          const sr = (el as unknown as {shadowRoot?: ShadowRoot}).shadowRoot
-          if (sr) walk(sr)
-        })
-      }
-      walk(document)
-      return results
+    // 진단: contenteditable / data-placeholder 요소 목록
+    const editables = await pfFrame.evaluate(function() {
+      return Array.from(document.querySelectorAll('[contenteditable], [data-placeholder]')).map(function(el) {
+        return {
+          tag: el.tagName,
+          cls: (el.className || '').toString().slice(0, 80),
+          placeholder: el.getAttribute('data-placeholder') || undefined,
+          visible: !!(el as HTMLElement).offsetParent,
+        }
+      })
     })
     console.log('  [진단] contenteditable/data-placeholder 요소:')
-    editables.forEach((e, i) => console.log(`    [${i}] ${JSON.stringify(e)}`))
+    editables.forEach(function(e, i) { console.log('    [' + i + '] ' + JSON.stringify(e)) })
 
     // 방법 1: data-placeholder="제목" 속성으로 찾기
     const titleLocator = editorCtx.locator('[data-placeholder="제목"], [data-placeholder*="제목"]').first()
@@ -223,14 +213,15 @@ async function main() {
       return
     }
 
-    // 방법 2: iframe 내 첫 번째 가시 contenteditable 직접 포커스
-    const focused = await pfFrame.evaluate((title: string) => {
-      const els = Array.from(document.querySelectorAll<HTMLElement>('[contenteditable]'))
-        .filter(el => el.offsetParent !== null && el.getAttribute('aria-hidden') !== 'true')
+    // 방법 2: iframe 내 첫 번째 가시 contenteditable에 execCommand
+    const focused = await pfFrame.evaluate(function(title) {
+      var els = Array.from(document.querySelectorAll('[contenteditable]')).filter(function(el) {
+        return !!(el as HTMLElement).offsetParent && el.getAttribute('aria-hidden') !== 'true'
+      }) as HTMLElement[]
       if (els.length > 0) {
         els[0].focus()
         els[0].click()
-        document.execCommand('selectAll', false)
+        document.execCommand('selectAll', false, undefined)
         document.execCommand('insertText', false, title)
         return true
       }
@@ -241,12 +232,12 @@ async function main() {
       return
     }
 
-    // 방법 3: 좌표 클릭 fallback
+    // 방법 3: 좌표 클릭 fallback (y≈190 = 제목 영역 상단부)
     const iframeBox = await editorPage.locator('iframe').first().boundingBox()
     if (!iframeBox) throw new Error('iframe 위치를 찾지 못했습니다.')
     const titleX = iframeBox.x + 315
     const titleY = iframeBox.y + 190
-    console.log(`  좌표 클릭: (${titleX}, ${titleY})`)
+    console.log('  좌표 클릭: (' + titleX + ', ' + titleY + ')')
     await editorPage.mouse.click(titleX, titleY)
     await editorPage.waitForTimeout(200)
     await editorPage.keyboard.type(TITLE)
