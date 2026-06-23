@@ -243,6 +243,19 @@ export default function BlogFormPage() {
                   onChange={(e) => set('businessInfo', e.target.value)}
                 />
               </div>
+
+              <div>
+                <label className={labelClass}>
+                  업체 위치 <span className="text-xs font-normal text-gray-400">(지도 자동 삽입)</span>
+                </label>
+                <input
+                  type="text"
+                  className={inputClass}
+                  placeholder="예: 서울 마포구 합정역 2번 출구"
+                  value={form.location}
+                  onChange={(e) => set('location', e.target.value)}
+                />
+              </div>
             </div>
           </section>
 
