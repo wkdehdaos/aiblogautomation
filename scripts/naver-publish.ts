@@ -269,6 +269,19 @@ async function main() {
       btns.forEach(b => console.log(`    ${JSON.stringify(b)}`))
     }
 
+    // 팝업 레이어(se-popup-flayer, 글감/링크/맞춤법 등)가 열려있으면 먼저 닫기
+    const popupClose = editorCtx.locator('.se-popup-flayer-close-button').first()
+    if (await popupClose.isVisible({ timeout: 1000 }).catch(() => false)) {
+      console.log('  팝업 레이어 감지 → 닫기')
+      await popupClose.click()
+      await editorPage.waitForTimeout(500)
+    }
+    const popupDim = editorCtx.locator('.se-popup-dim').first()
+    if (await popupDim.isVisible({ timeout: 1000 }).catch(() => false)) {
+      await editorPage.keyboard.press('Escape')
+      await editorPage.waitForTimeout(500)
+    }
+
     // publish_btn 클래스 패턴으로 정확히 찾기 (예약 발행 버튼과 구분)
     const publishBtn = editorCtx.locator('button[class*="publish_btn"]').first()
     if (!await publishBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
