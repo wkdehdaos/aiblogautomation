@@ -209,6 +209,11 @@ export async function publishToNaver(
         } else {
           await editorPage.keyboard.press('Escape')
         }
+        // 서체 선택 후 본문으로 포커스 복귀
+        if (bodyVisible) {
+          await bodyCE.click({ timeout: 3000 }).catch(() => {})
+          await editorPage.waitForTimeout(200)
+        }
       }
 
       // <!--IMAGE_N--> 마커 기준으로 분할 → HTML 붙여넣기 + 이미지 교차 삽입
