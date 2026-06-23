@@ -181,25 +181,76 @@ async function main() {
     const pfFrame = editorPage.frames().find(f => f.url().includes('PostWriteForm'))
     if (!pfFrame) throw new Error('PostWriteForm 프레임을 찾지 못했습니다.')
 
-    // floating 글감 패널 JS로 숨기기
+    // floating 패널 숨기기
     await pfFrame.evaluate(() => {
       document.querySelectorAll<HTMLElement>('.se-floating-material-menu, .se-floating-search').forEach(
         el => { el.style.display = 'none' }
       )
     })
 
-    // 제목 영역: 스크린샷 기준 "제목" placeholder가 보이는 위치 클릭 (x≈315, y≈245)
-    // 이 좌표는 PostWriteForm iframe 내부 기준이므로 iframe 요소의 위치를 구한 뒤 오프셋 추가
+    // 진단: contenteditable 요소 목록 (Shadow DOM 포함)
+    const editables = await pfFrame.evaluate(() => {
+      const results: {tag: string; cls: string; placeholder?: string; visible: boolean}[] = []
+      function walk(root: Document | Element | ShadowRoot) {
+        const els = root.querySelectorAll('[contenteditable], [data-placeholder]')
+        els.forEach((el) => {
+          results.push({
+            tag: el.tagName,
+            cls: el.className?.toString().slice(0, 80),
+            placeholder: el.getAttribute('data-placeholder') || undefined,
+            visible: (el as HTMLElement).offsetParent !== null,
+          })
+        })
+        root.querySelectorAll('*').forEach(el => {
+          const sr = (el as unknown as {shadowRoot?: ShadowRoot}).shadowRoot
+          if (sr) walk(sr)
+        })
+      }
+      walk(document)
+      return results
+    })
+    console.log('  [진단] contenteditable/data-placeholder 요소:')
+    editables.forEach((e, i) => console.log(`    [${i}] ${JSON.stringify(e)}`))
+
+    // 방법 1: data-placeholder="제목" 속성으로 찾기
+    const titleLocator = editorCtx.locator('[data-placeholder="제목"], [data-placeholder*="제목"]').first()
+    if (await titleLocator.isVisible({ timeout: 3000 }).catch(() => false)) {
+      console.log('  data-placeholder 제목 요소 발견 → 클릭 후 입력')
+      await titleLocator.click()
+      await editorPage.waitForTimeout(200)
+      await editorPage.keyboard.type(TITLE)
+      console.log('  제목 입력 완료 (data-placeholder)')
+      return
+    }
+
+    // 방법 2: iframe 내 첫 번째 가시 contenteditable 직접 포커스
+    const focused = await pfFrame.evaluate((title: string) => {
+      const els = Array.from(document.querySelectorAll<HTMLElement>('[contenteditable]'))
+        .filter(el => el.offsetParent !== null && el.getAttribute('aria-hidden') !== 'true')
+      if (els.length > 0) {
+        els[0].focus()
+        els[0].click()
+        document.execCommand('selectAll', false)
+        document.execCommand('insertText', false, title)
+        return true
+      }
+      return false
+    }, TITLE)
+    if (focused) {
+      console.log('  제목 입력 완료 (evaluate execCommand)')
+      return
+    }
+
+    // 방법 3: 좌표 클릭 fallback
     const iframeBox = await editorPage.locator('iframe').first().boundingBox()
     if (!iframeBox) throw new Error('iframe 위치를 찾지 못했습니다.')
-
     const titleX = iframeBox.x + 315
-    const titleY = iframeBox.y + 245
-    console.log(`  iframe offset: (${iframeBox.x}, ${iframeBox.y}), 제목 클릭: (${titleX}, ${titleY})`)
+    const titleY = iframeBox.y + 190
+    console.log(`  좌표 클릭: (${titleX}, ${titleY})`)
     await editorPage.mouse.click(titleX, titleY)
     await editorPage.waitForTimeout(200)
     await editorPage.keyboard.type(TITLE)
-    console.log('  제목 입력 완료')
+    console.log('  제목 입력 완료 (좌표)')
   })
 
   // ── 5단계: 본문 입력 ──────────────────────────
