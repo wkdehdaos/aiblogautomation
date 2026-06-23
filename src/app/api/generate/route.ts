@@ -18,8 +18,8 @@ async function toImageBlock(file: File): Promise<Anthropic.ImageBlockParam | nul
   try {
     const rawBuffer = Buffer.from(await file.arrayBuffer() as ArrayBuffer)
     const finalBuffer = await sharp(rawBuffer)
-      .resize(1600, 1600, { fit: 'inside', withoutEnlargement: true })
-      .jpeg({ quality: 85 })
+      .resize(800, 800, { fit: 'inside', withoutEnlargement: true })
+      .jpeg({ quality: 70 })
       .toBuffer()
     return {
       type: 'image',
