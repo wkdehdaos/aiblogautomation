@@ -125,19 +125,17 @@ async function main() {
 
   // ── 4단계: 제목 입력 ──────────────────────────
   await runStep(editorPage, '제목입력', async () => {
-    // SmartEditor ONE: 첫 번째 contenteditable이 제목
     const candidates = [
-      '[aria-label*="제목"]',
-      '[contenteditable="true"][class*="title"]',
-      '.se-title-input [contenteditable="true"]',
-      '.se-title-input',
+      `${EDITABLE}[aria-label*="제목"]`,
+      `${EDITABLE}[class*="title"]`,
+      `.se-title-input ${EDITABLE}`,
     ]
     let done = false
     for (const sel of candidates) {
       const el = editorCtx.locator(sel).first()
       if (await el.isVisible({ timeout: 2000 }).catch(() => false)) {
+        await el.scrollIntoViewIfNeeded()
         await el.click()
-        // contenteditable은 fill 불가 → type 사용
         await el.pressSequentially(TITLE)
         console.log(`  제목 입력 완료 (${sel})`)
         done = true
@@ -145,12 +143,13 @@ async function main() {
       }
     }
     if (!done) {
-      // 마지막 수단: 첫 번째 contenteditable 클릭
-      const first = editorCtx.locator('[contenteditable="true"]').first()
+      // 마지막 수단: aria-hidden 제외 첫 번째 contenteditable
+      const first = editorCtx.locator(EDITABLE).first()
       if (!await first.isVisible({ timeout: 3000 })) throw new Error('제목 입력란을 찾지 못했습니다.')
+      await first.scrollIntoViewIfNeeded()
       await first.click()
       await first.pressSequentially(TITLE)
-      console.log('  제목 입력 완료 (첫 번째 contenteditable)')
+      console.log('  제목 입력 완료 (첫 번째 editable)')
     }
   })
 
