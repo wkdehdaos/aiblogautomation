@@ -1,4 +1,4 @@
-import { chromium, Page, FrameLocator } from 'playwright'
+import { chromium, Page, FrameLocator, Locator } from 'playwright'
 import path from 'path'
 import fs from 'fs'
 
@@ -14,72 +14,71 @@ const SCREENSHOT_DIR = path.resolve(process.cwd(), 'debug-screenshots')
 // aria-hidden·클립보드 히든 div 제외한 실제 에디터 contenteditable
 const CE = '[contenteditable="true"]:not([aria-hidden="true"]):not([allow])'
 
+// 스크린샷 디렉터리는 최초 1회만 생성
+let _snapDirReady = false
 async function snap(page: Page, label: string, index: number) {
-  fs.mkdirSync(SCREENSHOT_DIR, { recursive: true })
+  if (!_snapDirReady) { fs.mkdirSync(SCREENSHOT_DIR, { recursive: true }); _snapDirReady = true }
   await page.screenshot({
     path: path.join(SCREENSHOT_DIR, `${String(index).padStart(2, '0')}-${label}.png`),
     fullPage: true,
   }).catch(() => {})
 }
 
+// 도움말 패널 숨기기 — 모든 프레임 병렬 처리
 async function closeHelpPanels(page: Page) {
   await page.keyboard.press('Escape').catch(() => {})
-  await page.waitForTimeout(200)
-  for (const frame of [page.mainFrame(), ...page.frames()]) {
-    await frame.evaluate(() => {
-      document.querySelectorAll<HTMLElement>(
-        '.se-help-panel,[class*="help_panel"],[class*="helpPanel"],' +
-        '.se-floating-material-menu,.se-floating-search,' +
-        '[class*="help"],[class*="layer_help"]'
-      ).forEach(el => { el.style.display = 'none' })
-    }).catch(() => {})
-  }
-  await page.waitForTimeout(200)
+  await page.waitForTimeout(150)
+  await Promise.allSettled(
+    [page.mainFrame(), ...page.frames()].map(frame =>
+      frame.evaluate(() => {
+        document.querySelectorAll<HTMLElement>(
+          '.se-help-panel,[class*="help_panel"],[class*="helpPanel"],' +
+          '.se-floating-material-menu,.se-floating-search,' +
+          '[class*="help"],[class*="layer_help"]'
+        ).forEach(el => { el.style.display = 'none' })
+      }).catch(() => {})
+    )
+  )
 }
 
 async function dismissDraftModal(page: Page) {
   const modal = page.locator('text=작성 중인 글이 있습니다').first()
-  if (!await modal.isVisible({ timeout: 2000 }).catch(() => false)) return
+  if (!await modal.isVisible({ timeout: 1500 }).catch(() => false)) return
   const cancelBtn = page.locator('button:has-text("취소")').first()
-  if (await cancelBtn.isVisible({ timeout: 1500 }).catch(() => false)) {
+  if (await cancelBtn.isVisible({ timeout: 1000 }).catch(() => false)) {
     await cancelBtn.click()
   } else {
     await page.keyboard.press('Escape')
   }
-  await page.waitForTimeout(800)
+  await page.waitForTimeout(600)
 }
 
 // PostWriteForm iframe 우선 → 메인 페이지 순으로 탐색
 async function findEditorCtx(page: Page): Promise<LocatorCtx> {
-  // 1순위: PostWriteForm iframe (toolbar + 에디터 모두 여기 있음)
   const pfExists = page.frames().some(f => f.url().includes('PostWriteForm'))
   if (pfExists) {
     const fl = page.frameLocator('iframe[src*="PostWriteForm"]')
-    const visible = await fl.locator(CE).first().isVisible({ timeout: 15000 }).catch(() => false)
+    const visible = await fl.locator(CE).first().isVisible({ timeout: 12000 }).catch(() => false)
     if (visible) return fl
   }
-
-  // 2순위: 다른 iframe 순회
   for (const frame of page.frames()) {
     if (frame === page.mainFrame()) continue
     const src = frame.url()
     if (!src) continue
     try {
       const fl = page.frameLocator(`iframe[src="${src}"]`)
-      if (await fl.locator(CE).first().isVisible({ timeout: 2000 }).catch(() => false)) return fl
+      if (await fl.locator(CE).first().isVisible({ timeout: 1500 }).catch(() => false)) return fl
     } catch { continue }
   }
-
-  // 3순위: 메인 페이지 fallback
   return page
 }
 
-// 툴바 버튼을 여러 셀렉터로 시도
-async function findToolbarBtn(ctx: LocatorCtx, ...selectors: string[]) {
+// 툴바 버튼 탐색 — timeout 단축
+async function findToolbarBtn(ctx: LocatorCtx, ...selectors: string[]): Promise<Locator | null> {
   for (const sel of selectors) {
     try {
       const btn = ctx.locator(sel).first()
-      if (await btn.isVisible({ timeout: 1500 }).catch(() => false)) return btn
+      if (await btn.isVisible({ timeout: 600 }).catch(() => false)) return btn
     } catch { continue }
   }
   return null
@@ -95,7 +94,48 @@ async function pasteHtml(page: Page, html: string) {
     return navigator.clipboard.write([item])
   }, html)
   await page.keyboard.press('Control+v')
-  await page.waitForTimeout(500)
+  await page.waitForTimeout(300)
+}
+
+// 본문 CE를 확실히 찾아 클릭 — 제목 CE와 혼동 방지
+async function focusBodyCE(editorCtx: LocatorCtx, editorPage: Page): Promise<Locator | null> {
+  // 1순위: SE4 메인 컨테이너 하위 CE (제목과 완전히 분리된 영역)
+  const specificSelectors = [
+    '[class*="se-main-container"] ' + CE,
+    '[class*="se_content"] '        + CE,
+    '[class*="content_wrap"] '      + CE,
+    '[class*="se-content"] '        + CE,
+    '[class*="editor_body"] '       + CE,
+  ]
+  for (const sel of specificSelectors) {
+    const loc = editorCtx.locator(sel).first()
+    if (await loc.isVisible({ timeout: 600 }).catch(() => false)) {
+      await loc.click({ timeout: 3000 }).catch(() => {})
+      await editorPage.waitForTimeout(250)
+      return loc
+    }
+  }
+
+  // 2순위: Tab 키로 이동 후 마지막 CE (body 는 보통 마지막 CE)
+  await editorPage.keyboard.press('Tab')
+  await editorPage.waitForTimeout(300)
+  const lastCE = editorCtx.locator(CE).last()
+  if (await lastCE.isVisible({ timeout: 1000 }).catch(() => false)) {
+    await lastCE.click({ timeout: 3000 }).catch(() => {})
+    await editorPage.waitForTimeout(250)
+    return lastCE
+  }
+
+  // 3순위: iframe 내 좌표 클릭 (제목 영역 아래 35% 지점)
+  const iframeBox = await editorPage.locator('iframe[src*="PostWriteForm"]').first().boundingBox().catch(() => null)
+  if (iframeBox) {
+    await editorPage.mouse.click(
+      iframeBox.x + iframeBox.width / 2,
+      iframeBox.y + Math.max(iframeBox.height * 0.35, 200),
+    )
+    await editorPage.waitForTimeout(250)
+  }
+  return null
 }
 
 export async function publishToNaver(
@@ -156,42 +196,59 @@ export async function publishToNaver(
     // 3. 에디터 로드 대기
     await step('에디터로드대기', async () => {
       await editorPage.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {})
-      await editorPage.waitForTimeout(2500)
+      await editorPage.waitForTimeout(1500)
       await closeHelpPanels(editorPage)
       await dismissDraftModal(editorPage)
       editorCtx = await findEditorCtx(editorPage)
     })
 
-    // 4. 제목 입력
+    // 4. 제목 입력 — 제목 전용 셀렉터 우선 시도
     await step('제목입력', async () => {
-      await dismissDraftModal(editorPage)
-      await closeHelpPanels(editorPage)
-
-      // 제목 contenteditable 클릭 (0번째)
-      const titleCE = editorCtx.locator(CE).nth(0)
-      if (await titleCE.isVisible({ timeout: 5000 }).catch(() => false)) {
-        await titleCE.scrollIntoViewIfNeeded({ timeout: 2000 }).catch(() => {})
-        await titleCE.click({ timeout: 5000 })
-      } else {
-        // iframe 좌표 폴백
-        const box = await editorPage.locator('iframe[src*="PostWriteForm"]').first().boundingBox().catch(() => null)
-        if (box) await editorPage.mouse.click(box.x + 315, box.y + 225)
+      // SE4 제목: 일반 input 또는 contenteditable. 제목 전용 셀렉터를 먼저 탐색.
+      const titleSelectors = [
+        '.se-title-text',
+        'input[class*="title"]',
+        'textarea[class*="title"]',
+        '[class*="se_title"] input',
+        '[class*="title_area"] input',
+        '[placeholder*="제목"]',
+      ]
+      let clicked = false
+      for (const sel of titleSelectors) {
+        const el = editorCtx.locator(sel).first()
+        if (await el.isVisible({ timeout: 1000 }).catch(() => false)) {
+          await el.click({ timeout: 3000 })
+          await editorPage.waitForTimeout(150)
+          // input/textarea 는 fill(), contenteditable 은 type()
+          const tag = await el.evaluate((n) => (n as HTMLElement).tagName.toLowerCase()).catch(() => 'div')
+          if (tag === 'input' || tag === 'textarea') {
+            await el.fill(title)
+          } else {
+            await editorPage.keyboard.type(title)
+          }
+          clicked = true
+          break
+        }
       }
-      await editorPage.waitForTimeout(300)
-      await editorPage.keyboard.type(title)
+
+      if (!clicked) {
+        // 폴백: 첫 번째 CE 클릭 후 타이핑
+        const titleCE = editorCtx.locator(CE).nth(0)
+        if (await titleCE.isVisible({ timeout: 3000 }).catch(() => false)) {
+          await titleCE.scrollIntoViewIfNeeded({ timeout: 2000 }).catch(() => {})
+          await titleCE.click({ timeout: 3000 })
+        } else {
+          const box = await editorPage.locator('iframe[src*="PostWriteForm"]').first().boundingBox().catch(() => null)
+          if (box) await editorPage.mouse.click(box.x + 315, box.y + 225)
+        }
+        await editorPage.waitForTimeout(150)
+        await editorPage.keyboard.type(title)
+      }
     })
 
-    // 5. 본문 입력 (HTML 클립보드 붙여넣기 + 이미지 삽입)
+    // 5. 본문 입력 — focusBodyCE 로 제목과 완전히 분리된 본문 CE 확보
     await step('본문입력', async () => {
-      // 본문 contenteditable 직접 클릭 (Tab 의존 시 포커스가 제목에 남는 버그 방지)
-      const bodyCE = editorCtx.locator(CE).nth(1)
-      const bodyVisible = await bodyCE.isVisible({ timeout: 5000 }).catch(() => false)
-      if (bodyVisible) {
-        await bodyCE.click({ timeout: 5000 })
-      } else {
-        await editorPage.keyboard.press('Tab')
-      }
-      await editorPage.waitForTimeout(500)
+      const bodyCE = await focusBodyCE(editorCtx, editorPage)
 
       // 서체 선택
       const fontBtn = await findToolbarBtn(editorCtx,
@@ -201,28 +258,27 @@ export async function publishToNaver(
       )
       if (fontBtn) {
         await fontBtn.click()
-        await editorPage.waitForTimeout(500)
+        await editorPage.waitForTimeout(400)
         const fontOption = editorCtx.locator(`button:has-text("${font}"), [title="${font}"]`).first()
-        if (await fontOption.isVisible({ timeout: 2000 }).catch(() => false)) {
+        if (await fontOption.isVisible({ timeout: 1500 }).catch(() => false)) {
           await fontOption.click()
-          await editorPage.waitForTimeout(300)
+          await editorPage.waitForTimeout(200)
         } else {
           await editorPage.keyboard.press('Escape')
         }
-        // 서체 선택 후 본문으로 포커스 복귀
-        if (bodyVisible) {
+        // 서체 선택 후 본문 포커스 복귀
+        if (bodyCE) {
           await bodyCE.click({ timeout: 3000 }).catch(() => {})
-          await editorPage.waitForTimeout(200)
+          await editorPage.waitForTimeout(150)
         }
       }
 
-      // <!--IMAGE_N--> 마커 기준으로 분할 → HTML 붙여넣기 + 이미지 교차 삽입
+      // <!--IMAGE_N--> 마커 기준 분할 → HTML 붙여넣기 + 이미지 교차 삽입
       const parts = content.split(/(<!--IMAGE_\d+-->)/)
 
       for (const part of parts) {
         const markerMatch = part.match(/<!--IMAGE_(\d+)-->/)
         if (markerMatch) {
-          // 이미지 삽입
           const imgIndex = parseInt(markerMatch[1]) - 1
           if (imgIndex < imagePaths.length) {
             const imageBtn = await findToolbarBtn(editorCtx,
@@ -240,38 +296,38 @@ export async function publishToNaver(
                 imageBtn.click(),
               ])
               await fileChooser.setFiles([imagePaths[imgIndex]])
-              await editorPage.waitForTimeout(2500)
+              await editorPage.waitForTimeout(1800)
 
-              // 사진 레이아웃 팝업 처리
               const layoutPopup = editorCtx.locator(
                 '.se-photo-upload-layer,.se-popup-photo,[class*="photo_layer"],[class*="photoUpload"]'
               ).first()
-              if (await layoutPopup.isVisible({ timeout: 3000 }).catch(() => false)) {
+              if (await layoutPopup.isVisible({ timeout: 2000 }).catch(() => false)) {
                 const singlePhoto = editorCtx.locator(
                   'button:has-text("개별사진"),label:has-text("개별사진"),[class*="single"],[class*="individual"]'
                 ).first()
-                if (await singlePhoto.isVisible({ timeout: 2000 }).catch(() => false)) {
+                if (await singlePhoto.isVisible({ timeout: 1500 }).catch(() => false)) {
                   await singlePhoto.click()
-                  await editorPage.waitForTimeout(300)
+                  await editorPage.waitForTimeout(200)
                 }
                 const insertBtn = editorCtx.locator(
                   'button:has-text("삽입"),button:has-text("확인"),button:has-text("적용")'
                 ).first()
-                if (await insertBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
+                if (await insertBtn.isVisible({ timeout: 1500 }).catch(() => false)) {
                   await insertBtn.click()
-                  await editorPage.waitForTimeout(1000)
+                  await editorPage.waitForTimeout(800)
                 }
               } else {
-                await editorPage.waitForTimeout(2000)
+                await editorPage.waitForTimeout(1500)
               }
               await editorPage.keyboard.press('End')
               await editorPage.keyboard.press('Enter')
             }
           }
         } else {
-          // HTML 클립보드 붙여넣기 (서식 보존)
           const htmlPart = part.trim()
           if (htmlPart) {
+            // 붙여넣기 전 본문 포커스 재확인
+            if (bodyCE) await bodyCE.click({ timeout: 2000 }).catch(() => {})
             await pasteHtml(editorPage, htmlPart)
           }
         }
@@ -282,7 +338,7 @@ export async function publishToNaver(
     if (location) {
       await step('위치지도삽입', async () => {
         await editorPage.keyboard.press('Control+End')
-        await editorPage.waitForTimeout(300)
+        await editorPage.waitForTimeout(200)
         await editorPage.keyboard.press('Enter')
 
         const mapBtn = await findToolbarBtn(editorCtx,
@@ -297,37 +353,33 @@ export async function publishToNaver(
         )
         if (!mapBtn) throw new Error('장소 추가 버튼을 찾지 못했습니다.')
         await mapBtn.click()
-        await editorPage.waitForTimeout(1500)
+        await editorPage.waitForTimeout(1000)
 
         const searchSelectors = 'input[placeholder*="장소"],input[placeholder*="검색"],input[type="search"],.se-map-search-input'
         let searchInput = editorCtx.locator(searchSelectors).first()
-        if (!await searchInput.isVisible({ timeout: 3000 }).catch(() => false)) {
+        if (!await searchInput.isVisible({ timeout: 2000 }).catch(() => false)) {
           searchInput = editorPage.locator(searchSelectors).first()
         }
 
-        if (await searchInput.isVisible({ timeout: 5000 }).catch(() => false)) {
+        if (await searchInput.isVisible({ timeout: 4000 }).catch(() => false)) {
           await searchInput.fill(location)
           await searchInput.press('Enter')
-          await editorPage.waitForTimeout(2500)
+          await editorPage.waitForTimeout(2000)
 
           const resultSelectors = '.se-map-item,.se-place-item,[class*="map_item"],[class*="place_item"],[class*="PlaceItem"],li[class*="item"]'
           let firstResult = editorCtx.locator(resultSelectors).first()
-          if (!await firstResult.isVisible({ timeout: 3000 }).catch(() => false)) {
+          if (!await firstResult.isVisible({ timeout: 2000 }).catch(() => false)) {
             firstResult = editorPage.locator(resultSelectors).first()
           }
-          if (await firstResult.isVisible({ timeout: 5000 }).catch(() => false)) {
+          if (await firstResult.isVisible({ timeout: 4000 }).catch(() => false)) {
             await firstResult.click()
-            await editorPage.waitForTimeout(1000)
+            await editorPage.waitForTimeout(800)
           }
 
-          // 확인 버튼 — 메인 페이지 → ctx → 모든 iframe 순
           const confirmSel = 'button:has-text("추가"),button:has-text("확인"),button:has-text("삽입"),button:has-text("완료")'
           let confirmed = false
-          for (const locator of [
-            editorPage.locator(confirmSel).last(),
-            editorCtx.locator(confirmSel).last(),
-          ]) {
-            if (await locator.isVisible({ timeout: 3000 }).catch(() => false)) {
+          for (const locator of [editorPage.locator(confirmSel).last(), editorCtx.locator(confirmSel).last()]) {
+            if (await locator.isVisible({ timeout: 2000 }).catch(() => false)) {
               await locator.click()
               confirmed = true
               break
@@ -336,7 +388,7 @@ export async function publishToNaver(
           if (!confirmed) {
             for (const frame of editorPage.frames()) {
               const btn = frame.locator(confirmSel).last()
-              if (await btn.isVisible({ timeout: 1000 }).catch(() => false)) {
+              if (await btn.isVisible({ timeout: 800 }).catch(() => false)) {
                 await btn.click()
                 confirmed = true
                 break
@@ -344,18 +396,17 @@ export async function publishToNaver(
             }
           }
           if (!confirmed) await editorPage.keyboard.press('Enter')
-          await editorPage.waitForTimeout(1500)
+          await editorPage.waitForTimeout(1000)
         }
       })
     }
 
     // 7. 발행 버튼 클릭
     await step('발행버튼클릭', async () => {
-      // 오버레이 정리
       const dim = editorCtx.locator('.se-popup-dim').first()
-      if (await dim.isVisible({ timeout: 1000 }).catch(() => false)) {
+      if (await dim.isVisible({ timeout: 800 }).catch(() => false)) {
         await editorPage.keyboard.press('Escape')
-        await editorPage.waitForTimeout(500)
+        await editorPage.waitForTimeout(400)
       }
 
       let publishBtn = await findToolbarBtn(editorCtx,
@@ -379,7 +430,7 @@ export async function publishToNaver(
         throw new Error('공개 설정 팝업이 나타나지 않았습니다.')
       }
       const publicRadio = editorCtx.locator('label:has-text("전체공개"),input[type="radio"][value*="PUBLIC"]').first()
-      if (await publicRadio.isVisible({ timeout: 2000 }).catch(() => false)) {
+      if (await publicRadio.isVisible({ timeout: 1500 }).catch(() => false)) {
         await publicRadio.click().catch(() => {})
       }
     })
@@ -387,12 +438,13 @@ export async function publishToNaver(
     // 9. 최종 발행 확인
     await step('최종발행확인', async () => {
       const confirmBtn = editorCtx.locator('button[class*="confirm_btn"]').first()
-      if (await confirmBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
+      if (await confirmBtn.isVisible({ timeout: 4000 }).catch(() => false)) {
         await confirmBtn.click()
       } else {
         await editorPage.mouse.click(1172, 554)
       }
-      await editorPage.waitForNavigation({ timeout: 15000 }).catch(() => {})
+      // waitForNavigation(deprecated) → waitForLoadState
+      await editorPage.waitForLoadState('domcontentloaded', { timeout: 15000 }).catch(() => {})
     })
 
     const finalUrl = editorPage.url()
