@@ -180,6 +180,38 @@ export default function BlogFormPage() {
     const photo = form.photos.find((p) => p.id === id)
     if (photo) URL.revokeObjectURL(photo.previewUrl)
     set('photos', form.photos.filter((p) => p.id !== id))
+    setMosaicEnabled(prev => { const s = new Set(prev); s.delete(id); return s })
+    setMosaicUrls(prev => { const n = { ...prev }; delete n[id]; return n })
+    setMosaicLoading(prev => { const s = new Set(prev); s.delete(id); return s })
+  }
+
+  const toggleMosaic = async (photo: PhotoItem) => {
+    const { id } = photo
+    if (mosaicEnabled.has(id)) {
+      setMosaicEnabled(prev => { const s = new Set(prev); s.delete(id); return s })
+      return
+    }
+    if (mosaicUrls[id]) {
+      setMosaicEnabled(prev => new Set([...prev, id]))
+      return
+    }
+    setMosaicLoading(prev => new Set([...prev, id]))
+    try {
+      const fd = new FormData()
+      fd.append('image', photo.file)
+      const res = await fetch('/api/detect-faces', { method: 'POST', body: fd })
+      const { faces } = await res.json() as { faces: Array<{ x: number; y: number; w: number; h: number }> }
+      const dataUrl = await applyMosaicToImage(photo.previewUrl, faces ?? [])
+      setMosaicUrls(prev => ({ ...prev, [id]: dataUrl }))
+      setMosaicEnabled(prev => new Set([...prev, id]))
+    } catch {
+      // 실패 시 전체 픽셀화 적용
+      const dataUrl = await applyMosaicToImage(photo.previewUrl, []).catch(() => photo.previewUrl)
+      setMosaicUrls(prev => ({ ...prev, [id]: dataUrl }))
+      setMosaicEnabled(prev => new Set([...prev, id]))
+    } finally {
+      setMosaicLoading(prev => { const s = new Set(prev); s.delete(id); return s })
+    }
   }
 
   // 드래그로 순서 변경
