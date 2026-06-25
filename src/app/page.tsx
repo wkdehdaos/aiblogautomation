@@ -384,44 +384,67 @@ export default function BlogFormPage() {
 
             {form.photos.length > 0 && (
               <div className="grid grid-cols-3 gap-3 sm:grid-cols-4">
-                {form.photos.map((photo, index) => (
-                  <div
-                    key={photo.id}
-                    draggable
-                    onDragStart={() => handleDragStart(index)}
-                    onDragOver={(e) => handleDragOver(e, index)}
-                    onDrop={(e) => handleDrop(e, index)}
-                    onDragEnd={handleDragEnd}
-                    className={`group relative aspect-square cursor-grab overflow-hidden rounded-xl transition ${
-                      dragOverIndex === index ? 'scale-95 ring-2 ring-indigo-400 ring-offset-1' : ''
-                    }`}
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={photo.previewUrl}
-                      alt={`업로드 이미지 ${index + 1}`}
-                      className="h-full w-full object-cover"
-                    />
-                    <div className="absolute inset-0 bg-black/0 transition group-hover:bg-black/20" />
-                    <span className="absolute left-1.5 top-1.5 rounded bg-black/50 px-1.5 py-0.5 text-xs font-semibold text-white">
-                      {index + 1}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => removePhoto(photo.id)}
-                      className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-white/90 text-gray-600 opacity-0 shadow transition hover:bg-red-50 hover:text-red-500 group-hover:opacity-100"
-                    >
-                      <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2.5}
-                          d="M6 18L18 6M6 6l12 12"
+                {form.photos.map((photo, index) => {
+                  const isActive = mosaicEnabled.has(photo.id)
+                  const isProcessing = mosaicLoading.has(photo.id)
+                  const displaySrc = isActive && mosaicUrls[photo.id] ? mosaicUrls[photo.id] : photo.previewUrl
+                  return (
+                    <div key={photo.id} className="flex flex-col gap-1.5">
+                      <div
+                        draggable
+                        onDragStart={() => handleDragStart(index)}
+                        onDragOver={(e) => handleDragOver(e, index)}
+                        onDrop={(e) => handleDrop(e, index)}
+                        onDragEnd={handleDragEnd}
+                        className={`group relative aspect-square cursor-grab overflow-hidden rounded-xl transition ${
+                          dragOverIndex === index ? 'scale-95 ring-2 ring-indigo-400 ring-offset-1' : ''
+                        }`}
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={displaySrc}
+                          alt={`업로드 이미지 ${index + 1}`}
+                          className="h-full w-full object-cover"
                         />
-                      </svg>
-                    </button>
-                  </div>
-                ))}
+                        <div className="absolute inset-0 bg-black/0 transition group-hover:bg-black/20" />
+                        <span className="absolute left-1.5 top-1.5 rounded bg-black/50 px-1.5 py-0.5 text-xs font-semibold text-white">
+                          {index + 1}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => removePhoto(photo.id)}
+                          className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-white/90 text-gray-600 opacity-0 shadow transition hover:bg-red-50 hover:text-red-500 group-hover:opacity-100"
+                        >
+                          <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
+
+                      {/* 모자이크 토글 버튼 */}
+                      <button
+                        type="button"
+                        onClick={() => toggleMosaic(photo)}
+                        disabled={isProcessing}
+                        className={`w-full rounded-lg py-1 text-xs font-medium transition disabled:opacity-50 ${
+                          isActive
+                            ? 'bg-indigo-500 text-white hover:bg-indigo-600'
+                            : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                        }`}
+                      >
+                        {isProcessing ? (
+                          <span className="flex items-center justify-center gap-1">
+                            <svg className="h-3 w-3 animate-spin" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                            </svg>
+                            분석 중
+                          </span>
+                        ) : isActive ? '모자이크 ON' : '모자이크'}
+                      </button>
+                    </div>
+                  )
+                })}
               </div>
             )}
           </section>
@@ -657,7 +680,7 @@ export default function BlogFormPage() {
                   [&_strong]:font-semibold [&_strong]:text-gray-900
                   [&_ul]:mt-2 [&_ul]:list-disc [&_ul]:pl-5"
                 dangerouslySetInnerHTML={{
-                  __html: renderContentWithImages(result.content, result.photos),
+                  __html: renderContentWithImages(result.content, result.photos, mosaicUrls, mosaicEnabled),
                 }}
               />
             </section>
@@ -707,14 +730,19 @@ export default function BlogFormPage() {
                   setIsPublishing(true)
                   setPublishStatus(null)
                   try {
-                    // 사진 → base64 변환
+                    // 사진 → base64 변환 (모자이크 ON이면 모자이크 버전 사용)
                     const images = await Promise.all(
-                      result.photos.map(p => new Promise<string>((resolve, reject) => {
-                        const reader = new FileReader()
-                        reader.onload = () => resolve((reader.result as string).split(',')[1])
-                        reader.onerror = reject
-                        reader.readAsDataURL(p.file)
-                      }))
+                      result.photos.map(p => {
+                        if (mosaicEnabled.has(p.id) && mosaicUrls[p.id]) {
+                          return mosaicUrls[p.id].split(',')[1]
+                        }
+                        return new Promise<string>((resolve, reject) => {
+                          const reader = new FileReader()
+                          reader.onload = () => resolve((reader.result as string).split(',')[1])
+                          reader.onerror = reject
+                          reader.readAsDataURL(p.file)
+                        })
+                      })
                     )
                     const res = await fetch('/api/publish', {
                       method: 'POST',
