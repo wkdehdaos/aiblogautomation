@@ -47,15 +47,76 @@ const INITIAL_FORM: BlogFormData = {
   mustExclude: '',
 }
 
-function renderContentWithImages(content: string, photos: PhotoItem[]): string {
+function renderContentWithImages(content: string, photos: PhotoItem[], mosaicUrls: Record<string, string>, mosaicEnabled: Set<string>): string {
   let rendered = content
   photos.forEach((photo, i) => {
+    const src = mosaicEnabled.has(photo.id) && mosaicUrls[photo.id] ? mosaicUrls[photo.id] : photo.previewUrl
     rendered = rendered.replace(
       new RegExp(`<!--\\s*IMAGE_${i + 1}\\s*-->`, 'gi'),
-      `<img src="${photo.previewUrl}" alt="사진 ${i + 1}" style="width:100%;border-radius:12px;margin:16px 0;" />`
+      `<img src="${src}" alt="사진 ${i + 1}" style="width:100%;border-radius:12px;margin:16px 0;" />`
     )
   })
   return rendered
+}
+
+// 특정 영역 픽셀화
+function pixelateRegion(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, blockSize: number) {
+  const x0 = Math.max(0, Math.floor(x))
+  const y0 = Math.max(0, Math.floor(y))
+  const x1 = Math.min(ctx.canvas.width, Math.floor(x + w))
+  const y1 = Math.min(ctx.canvas.height, Math.floor(y + h))
+  const rw = x1 - x0, rh = y1 - y0
+  if (rw <= 0 || rh <= 0) return
+  const data = ctx.getImageData(x0, y0, rw, rh)
+  const d = data.data
+  for (let row = 0; row < rh; row += blockSize) {
+    for (let col = 0; col < rw; col += blockSize) {
+      const i = (row * rw + col) * 4
+      const r = d[i], g = d[i + 1], b = d[i + 2], a = d[i + 3]
+      for (let dr = 0; dr < blockSize && row + dr < rh; dr++) {
+        for (let dc = 0; dc < blockSize && col + dc < rw; dc++) {
+          const j = ((row + dr) * rw + (col + dc)) * 4
+          d[j] = r; d[j + 1] = g; d[j + 2] = b; d[j + 3] = a
+        }
+      }
+    }
+  }
+  ctx.putImageData(data, x0, y0)
+}
+
+// 얼굴 감지 결과(퍼센트 좌표)를 받아 canvas에 모자이크 적용 → data URL 반환
+function applyMosaicToImage(
+  previewUrl: string,
+  faces: Array<{ x: number; y: number; w: number; h: number }>,
+): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    img.onload = () => {
+      const canvas = document.createElement('canvas')
+      canvas.width = img.naturalWidth
+      canvas.height = img.naturalHeight
+      const ctx = canvas.getContext('2d')
+      if (!ctx) { resolve(previewUrl); return }
+      ctx.drawImage(img, 0, 0)
+      if (faces.length > 0) {
+        for (const f of faces) {
+          pixelateRegion(ctx,
+            (f.x / 100) * canvas.width,
+            (f.y / 100) * canvas.height,
+            (f.w / 100) * canvas.width,
+            (f.h / 100) * canvas.height,
+            16,
+          )
+        }
+      } else {
+        // 얼굴 미감지 시 전체 블러 처리
+        pixelateRegion(ctx, 0, 0, canvas.width, canvas.height, 16)
+      }
+      resolve(canvas.toDataURL('image/jpeg', 0.92))
+    }
+    img.onerror = reject
+    img.src = previewUrl
+  })
 }
 
 export default function BlogFormPage() {
