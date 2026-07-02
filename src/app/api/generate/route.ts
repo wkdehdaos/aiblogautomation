@@ -130,13 +130,12 @@ export async function POST(req: NextRequest) {
 - 이모지 없이
 
 ## 응답 규칙
-- 아래 형식만 사용. JSON 사용 금지. 다른 텍스트 없음.
+- 아래 XML 형식만 사용. 다른 텍스트 없음.
+- <blog_title> 안에는 제목 텍스트만 (HTML 태그 금지)
+- <blog_content> 안에는 HTML 본문만
 
-<<<TITLE>>>
-블로그 글 제목
-<<<CONTENT>>>
-HTML 형식의 본문
-<<<END>>>`
+<blog_title>블로그 글 제목</blog_title>
+<blog_content>HTML 형식의 본문</blog_content>`
 
     const userLines = [
       `업체명: ${businessName}`,
