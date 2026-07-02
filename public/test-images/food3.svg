@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600" viewBox="0 0 800 600">
+  <rect width="800" height="600" fill="#FFF0F5"/>
+  <!-- 배경 패턴 -->
+  <circle cx="50" cy="50" r="30" fill="#FFB6C1" opacity="0.2"/>
+  <circle cx="750" cy="100" r="40" fill="#DDA0DD" opacity="0.2"/>
+  <circle cx="100" cy="500" r="35" fill="#FFD700" opacity="0.2"/>
+  <circle cx="700" cy="520" r="45" fill="#98FB98" opacity="0.2"/>
+  <!-- 디저트 접시 -->
+  <ellipse cx="400" cy="420" rx="280" ry="35" fill="#DEB887" opacity="0.4"/>
+  <ellipse cx="400" cy="400" rx="270" ry="30" fill="#F5DEB3"/>
+  <!-- 케이크 -->
+  <rect x="270" y="250" width="260" height="150" rx="10" fill="#FFB6C1"/>
+  <rect x="270" y="250" width="260" height="30" rx="5" fill="#FF69B4"/>
+  <!-- 케이크 레이어 -->
+  <rect x="270" y="295" width="260" height="10" fill="#FFFACD"/>
+  <rect x="270" y="350" width="260" height="10" fill="#FFFACD"/>
+  <!-- 크림 장식 -->
+  <path d="M 270 250 Q 285 230 300 250 Q 315 230 330 250 Q 345 230 360 250 Q 375 230 390 250 Q 405 230 420 250 Q 435 230 450 250 Q 465 230 480 250 Q 495 230 510 250 Q 525 230 530 250" stroke="white" stroke-width="8" fill="none"/>
+  <!-- 딸기 -->
+  <ellipse cx="320" cy="238" rx="15" ry="18" fill="#DC143C"/>
+  <ellipse cx="320" cy="230" rx="13" ry="10" fill="#FF6347" opacity="0.7"/>
+  <rect x="316" y="218" width="8" height="12" rx="2" fill="#228B22"/>
+  <ellipse cx="400" cy="235" rx="18" ry="20" fill="#DC143C"/>
+  <ellipse cx="400" cy="226" rx="15" ry="12" fill="#FF6347" opacity="0.7"/>
+  <rect x="396" y="213" width="8" height="14" rx="2" fill="#228B22"/>
+  <ellipse cx="480" cy="238" rx="15" ry="18" fill="#DC143C"/>
+  <ellipse cx="480" cy="230" rx="13" ry="10" fill="#FF6347" opacity="0.7"/>
+  <rect x="476" y="218" width="8" height="12" rx="2" fill="#228B22"/>
+  <!-- 초콜릿 드리즐 -->
+  <path d="M 310 280 Q 330 295 350 278 Q 370 265 390 282 Q 410 298 430 280 Q 450 265 470 280" stroke="#8B4513" stroke-width="3" fill="none" opacity="0.7"/>
+  <!-- 마카롱 (왼쪽) -->
+  <ellipse cx="180" cy="350" rx="45" ry="25" fill="#DDA0DD"/>
+  <ellipse cx="180" cy="340" rx="42" ry="22" fill="#EE82EE"/>
+  <ellipse cx="180" cy="363" rx="42" ry="22" fill="#EE82EE"/>
+  <rect x="138" y="340" width="84" height="23" fill="#FFB6C1"/>
+  <!-- 마카롱 (오른쪽) -->
+  <ellipse cx="620" cy="340" rx="45" ry="25" fill="#90EE90"/>
+  <ellipse cx="620" cy="330" rx="42" ry="22" fill="#98FB98"/>
+  <ellipse cx="620" cy="353" rx="42" ry="22" fill="#98FB98"/>
+  <rect x="578" y="330" width="84" height="23" fill="#FFFACD"/>
+  <!-- 초코 케이크 조각 -->
+  <polygon points="160,390 240,390 220,430 140,430" fill="#3D1C02"/>
+  <polygon points="160,390 240,390 235,400 155,400" fill="#5C2E00"/>
+  <ellipse cx="190" cy="415" rx="18" ry="8" fill="#C0392B" opacity="0.8"/>
+  <!-- 텍스트 -->
+  <text x="400" y="510" font-family="Arial, sans-serif" font-size="28" font-weight="bold" fill="#C71585" text-anchor="middle">디저트 코너</text>
+  <text x="400" y="548" font-family="Arial, sans-serif" font-size="18" fill="#DB7093" text-anchor="middle">홍길동 뷔페 · 케이크 · 마카롱 · 아이스크림</text>
+</svg>
