@@ -280,12 +280,17 @@ export async function publishToNaver(
 
     // 5. 본문 입력
     await step('본문입력', async () => {
-      // 본문 CE 클릭 — iframe 기반 접근 우선
-      const bodyCE = await focusBodyCE(editorCtx, editorPage)
-      await editorPage.waitForTimeout(1000)
-      await snap(editorPage, '본문클릭후', 3)  // 03-본문클릭후.png
+      // ── 스크린샷 A: 본문 클릭 전 ──────────────────────────────────
+      await snap(editorPage, '본문클릭전', 5)
 
-      // 서체 선택
+      // ── 본문 영역 클릭 (4가지 방법 순서대로) ────────────────────
+      await tryClickBody(editorCtx, editorPage)
+      await editorPage.waitForTimeout(1000)
+
+      // ── 스크린샷 B: 본문 클릭 후 ──────────────────────────────────
+      await snap(editorPage, '본문클릭후', 5)
+
+      // ── 서체 선택 ─────────────────────────────────────────────────
       const fontBtn = await findToolbarBtn(editorCtx,
         '.se-font-family-toolbar-button',
         'button[class*="font_family"]',
@@ -302,18 +307,12 @@ export async function publishToNaver(
           await editorPage.keyboard.press('Escape')
         }
         // 서체 선택 후 본문 포커스 복귀
-        if (bodyCE) {
-          await bodyCE.click({ timeout: 3000 }).catch(() => {})
-          await editorPage.waitForTimeout(300)
-        } else {
-          await focusBodyCE(editorCtx, editorPage)
-          await editorPage.waitForTimeout(300)
-        }
+        await tryClickBody(editorCtx, editorPage)
+        await editorPage.waitForTimeout(300)
       }
 
-      // <!--IMAGE_N--> 마커 기준 분할 → HTML 붙여넣기 + 이미지 교차 삽입
+      // ── 방법 A: 클립보드 붙여넣기 (HTML 서식 보존) ──────────────
       const parts = content.split(/(<!--IMAGE_\d+-->)/)
-
       for (const part of parts) {
         const markerMatch = part.match(/<!--IMAGE_(\d+)-->/)
         if (markerMatch) {
@@ -364,14 +363,47 @@ export async function publishToNaver(
         } else {
           const htmlPart = part.trim()
           if (htmlPart) {
-            // 붙여넣기 전 본문 포커스 재확인
-            if (bodyCE) await bodyCE.click({ timeout: 2000 }).catch(() => {})
+            await tryClickBody(editorCtx, editorPage)
             await pasteHtml(editorPage, htmlPart)
           }
         }
       }
 
-      await snap(editorPage, '본문입력후', 4)  // 04-본문입력후.png
+      await editorPage.waitForTimeout(800)
+      const afterPaste = await getBodyText(editorPage)
+      console.log('[body] 클립보드 붙여넣기 후 본문:', afterPaste.slice(0, 80) || '(비어있음)')
+
+      // ── 방법 B: keyboard.type (클립보드 실패 시 폴백) ───────────
+      if (!afterPaste.trim()) {
+        console.log('[body] → keyboard.type 시도')
+        await tryClickBody(editorCtx, editorPage)
+        await editorPage.waitForTimeout(300)
+        const plainText = content.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+        await editorPage.keyboard.type(plainText, { delay: 10 })
+        await editorPage.waitForTimeout(800)
+
+        const afterType = await getBodyText(editorPage)
+        console.log('[body] keyboard.type 후 본문:', afterType.slice(0, 80) || '(비어있음)')
+
+        // ── 방법 C: DOM 직접 삽입 (최후 수단) ──────────────────────
+        if (!afterType.trim()) {
+          console.log('[body] → DOM 직접 삽입 시도')
+          const plainText2 = content.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+          await insertBodyViaDOM(plainText2, editorPage)
+          await editorPage.waitForTimeout(800)
+
+          const afterDOM = await getBodyText(editorPage)
+          console.log('[body] DOM 삽입 후 본문:', afterDOM.slice(0, 80) || '(비어있음)')
+
+          if (!afterDOM.trim()) {
+            await snap(editorPage, '본문입력실패', 5)
+            throw new Error('본문 입력 실패: 클립보드·keyboard.type·DOM 삽입 모두 효과 없음. debug-screenshots 확인 필요.')
+          }
+        }
+      }
+
+      // ── 스크린샷 C: 본문 입력 후 ──────────────────────────────────
+      await snap(editorPage, '본문입력후', 5)
     })
 
     // 6. 위치 지도 삽입
