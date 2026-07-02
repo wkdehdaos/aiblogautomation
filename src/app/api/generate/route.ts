@@ -30,6 +30,26 @@ async function toImageBlock(file: File): Promise<Anthropic.ImageBlockParam | nul
   }
 }
 
+// tool_use로 구조화된 출력을 강제 — title/content 필드가 스키마로 보장됨
+const BLOG_TOOL: Anthropic.Tool = {
+  name: 'write_blog_post',
+  description: '블로그 글 제목과 HTML 본문을 작성합니다.',
+  input_schema: {
+    type: 'object' as const,
+    properties: {
+      title: {
+        type: 'string',
+        description: '블로그 글 제목 (이모지·HTML 태그 없는 순수 텍스트)',
+      },
+      content: {
+        type: 'string',
+        description: '블로그 본문 HTML',
+      },
+    },
+    required: ['title', 'content'],
+  },
+}
+
 export async function POST(req: NextRequest) {
   if (!process.env.ANTHROPIC_API_KEY) {
     return Response.json({ error: 'ANTHROPIC_API_KEY가 설정되지 않았습니다.' }, { status: 500 })
@@ -54,9 +74,7 @@ export async function POST(req: NextRequest) {
 
     const photoFiles = formData.getAll('photos') as File[]
 
-    // 사진 변환 실패해도 전체 요청은 계속 진행
     const results = await Promise.allSettled(photoFiles.map(toImageBlock))
-    // 성공한 사진의 원본 인덱스를 추적해 클라이언트가 올바른 사진을 매핑할 수 있게 함
     const successIndices: number[] = []
     const imageBlocks: Anthropic.ImageBlockParam[] = []
     results.forEach((r, idx) => {
@@ -73,7 +91,7 @@ export async function POST(req: NextRequest) {
 
     const toneInstruction = TONE_MAP[tone] ?? '친근하고 편안한 말투'
 
-    const systemPrompt = `당신은 10년 경력의 한국 파워블로거입니다. 이모지는 절대 사용하지 않습니다. 아래 HTML 구조와 스타일을 정확히 따라 작성하세요.
+    const systemPrompt = `당신은 10년 경력의 한국 파워블로거입니다. write_blog_post 툴을 반드시 호출해 title과 content를 채워주세요.
 
 ## 글쓰기 스타일
 - 1인칭 시점, 친한 친구에게 말하듯 자연스럽고 솔직하게 — 문장이 딱딱하지 않고 흐르듯 이어져야 함
@@ -81,18 +99,15 @@ export async function POST(req: NextRequest) {
 - 단점이나 아쉬운 점도 한두 가지 솔직하게 언급 — 그래야 진짜 후기처럼 보임
 - "강추", "필수코스", "강력 추천", "맛집 인정" 같은 광고성·과장 표현 절대 금지
 - 이모지는 맨 앞 인사 👋 딱 하나만 — 본문에는 절대 사용 금지
-- 문단과 문단 사이 흐름이 자연스럽게 이어지도록 — 갑작스럽게 섹션이 끊기지 않게
+- 문단과 문단 사이 흐름이 자연스럽게 이어지도록
 - 숫자 접두어(1. 2. 3.) 부제목 사용 금지
 
-## HTML 구조 (이 순서와 태그를 반드시 지킬 것)
+## content 필드 HTML 구조 (반드시 준수)
 
-<!-- 0. 인사 이모지: 딱 하나만, 글 맨 앞에 단독으로 -->
 <p style="font-size:28px;text-align:center;margin:0 0 16px">👋</p>
 
-<!-- 1. 도입 문단: 방문 계기, 날씨·동행·기분 등 감성적 상황 묘사로 시작 -->
 <p style="line-height:1.9;font-size:15px;color:#333">도입 내용...</p>
 
-<!-- 2. 섹션들: h2로 부제목, 바로 아래 p로 본문. 섹션 수는 글 길이에 맞게 자유롭게. -->
 <h2 style="font-size:17px;font-weight:700;color:#222;margin:32px 0 10px">부제목</h2>
 <p style="line-height:1.9;font-size:15px;color:#333">내용...</p>
 
@@ -101,7 +116,6 @@ export async function POST(req: NextRequest) {
 <h2 style="font-size:17px;font-weight:700;color:#222;margin:32px 0 10px">부제목</h2>
 <p style="line-height:1.9;font-size:15px;color:#333">내용...</p>
 
-<!-- 인용구 강조: 핵심 한 문장, 중간에 1회만 -->
 <div style="text-align:center;margin:28px 0;padding:20px">
   <p style="font-size:13px;color:#aaa;margin:0">"</p>
   <p style="font-size:16px;font-weight:600;color:#333;margin:8px 0;line-height:1.7">핵심 인상이나 느낌을 한 문장으로</p>
@@ -113,7 +127,6 @@ export async function POST(req: NextRequest) {
 <h2 style="font-size:17px;font-weight:700;color:#222;margin:32px 0 10px">부제목</h2>
 <p style="line-height:1.9;font-size:15px;color:#333">내용...</p>
 
-<!-- 마지막: 방문 정보 박스 -->
 <h2 style="font-size:17px;font-weight:700;color:#222;margin:32px 0 10px">방문 정보</h2>
 <div style="background:#f7f8fc;border-radius:8px;padding:20px 24px;margin:12px 0">
   <ul style="margin:0;padding-left:4px;list-style:none;font-size:14px;color:#444;line-height:2.2">
@@ -124,18 +137,10 @@ export async function POST(req: NextRequest) {
   </ul>
 </div>
 
-## 제목 스타일
+## title 필드 스타일
 - 업체명 + 솔직한 느낌/특징을 담은 자연스러운 문장
-- 예: "[업체명] 다녀온 솔직 후기, 기대보다 괜찮았던 이유", "[업체명] 웨이팅 감수하고 갔는데"
-- 이모지 없이
-
-## 응답 규칙
-- 아래 XML 형식만 사용. 다른 텍스트 없음.
-- <blog_title> 안에는 제목 텍스트만 (HTML 태그 금지)
-- <blog_content> 안에는 HTML 본문만
-
-<blog_title>블로그 글 제목</blog_title>
-<blog_content>HTML 형식의 본문</blog_content>`
+- 예: "[업체명] 다녀온 솔직 후기, 기대보다 괜찮았던 이유"
+- 이모지·HTML 태그 없이`
 
     const userLines = [
       `업체명: ${businessName}`,
@@ -148,7 +153,7 @@ export async function POST(req: NextRequest) {
       mustExclude && `반드시 제외할 내용: ${mustExclude}`,
       titleHint && `제목 힌트 (참고용): ${titleHint}`,
       imageBlocks.length > 0 &&
-        `첨부 사진 ${imageBlocks.length}장이 있습니다. 본문 중간 적절한 위치마다 <!--IMAGE_1-->, <!--IMAGE_2--> ... <!--IMAGE_${imageBlocks.length}--> 마커를 삽입해 주세요.`,
+        `첨부 사진 ${imageBlocks.length}장이 있습니다. content 본문 중간 적절한 위치마다 <!--IMAGE_1-->, <!--IMAGE_2--> ... <!--IMAGE_${imageBlocks.length}--> 마커를 삽입해 주세요.`,
     ]
       .filter(Boolean)
       .join('\n')
@@ -158,24 +163,24 @@ export async function POST(req: NextRequest) {
       ...imageBlocks,
     ]
 
-    const stream = client.messages.stream({
+    const response = await client.messages.create({
       model: 'claude-sonnet-4-6',
       max_tokens: 4096,
       system: systemPrompt,
+      tools: [BLOG_TOOL],
+      tool_choice: { type: 'tool', name: 'write_blog_post' },
       messages: [{ role: 'user', content: userContent }],
     })
-    const response = await stream.finalMessage()
 
-    const raw = response.content[0].type === 'text' ? response.content[0].text : ''
-    const titleMatch = raw.match(/<blog_title>\s*([\s\S]*?)\s*<\/blog_title>/)
-    const contentMatch = raw.match(/<blog_content>\s*([\s\S]*?)\s*<\/blog_content>/)
-    if (!titleMatch || !contentMatch) {
-      console.error('[generate] 파싱 실패. raw:\n', raw.slice(0, 500))
+    const toolUse = response.content.find(
+      (block): block is Anthropic.ToolUseBlock => block.type === 'tool_use'
+    )
+    if (!toolUse) {
+      console.error('[generate] tool_use 블록 없음:', JSON.stringify(response.content).slice(0, 300))
       return Response.json({ error: '응답 파싱 실패' }, { status: 500 })
     }
 
-    const title = titleMatch[1].trim()
-    const content = contentMatch[1].trim()
+    const { title, content } = toolUse.input as { title: string; content: string }
     return Response.json({ title, content, successIndices })
   } catch (err) {
     console.error('[generate] error:', err)
