@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600" viewBox="0 0 800 600">
+  <rect width="800" height="600" fill="#FFF8F0"/>
+  <!-- 테이블 배경 -->
+  <rect x="0" y="400" width="800" height="200" fill="#D4956A" rx="0"/>
+  <!-- 큰 뷔페 접시 -->
+  <ellipse cx="400" cy="360" rx="200" ry="30" fill="#C8A882" opacity="0.5"/>
+  <circle cx="400" cy="300" r="180" fill="#FAEBD7"/>
+  <circle cx="400" cy="300" r="170" fill="#FDF5E6" stroke="#D4956A" stroke-width="4"/>
+  <!-- 밥 -->
+  <ellipse cx="400" cy="305" rx="60" ry="50" fill="#FFFFF0"/>
+  <ellipse cx="400" cy="298" rx="58" ry="42" fill="#F5F5DC"/>
+  <!-- 나물 (초록) -->
+  <ellipse cx="310" cy="290" rx="45" ry="35" fill="#6B8E23"/>
+  <ellipse cx="310" cy="285" rx="40" ry="28" fill="#7CFC00" opacity="0.7"/>
+  <!-- 나물 (갈색) -->
+  <ellipse cx="320" cy="330" rx="40" ry="28" fill="#8B4513"/>
+  <ellipse cx="320" cy="325" rx="35" ry="22" fill="#A0522D" opacity="0.8"/>
+  <!-- 소고기 -->
+  <ellipse cx="490" cy="285" rx="45" ry="35" fill="#8B0000"/>
+  <ellipse cx="490" cy="280" rx="40" ry="28" fill="#B22222" opacity="0.8"/>
+  <!-- 달걀 프라이 -->
+  <ellipse cx="480" cy="330" rx="38" ry="30" fill="#FFFACD"/>
+  <circle cx="480" cy="328" r="15" fill="#FFD700" opacity="0.9"/>
+  <!-- 고추장 -->
+  <circle cx="400" cy="300" r="18" fill="#DC143C" opacity="0.8"/>
+  <!-- 텍스트 -->
+  <text x="400" y="520" font-family="Arial, sans-serif" font-size="28" font-weight="bold" fill="#5C3A1E" text-anchor="middle">홍길동 뷔페 · 한식 코너</text>
+  <text x="400" y="555" font-family="Arial, sans-serif" font-size="18" fill="#8B6347" text-anchor="middle">경기도 파주시 패밀리 뷔페</text>
+</svg>
