@@ -337,6 +337,15 @@ export default function BlogFormPage() {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
+          {/* 테스트 자동입력 */}
+          <button
+            type="button"
+            onClick={fillTestData}
+            className="flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-amber-300 bg-amber-50 py-3 text-sm font-medium text-amber-700 transition hover:bg-amber-100"
+          >
+            🧪 테스트 자동입력
+          </button>
+
           {/* 카드: 기본 정보 */}
           <section className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-gray-100">
             <h2 className="mb-5 text-base font-semibold text-gray-800">기본 정보</h2>
