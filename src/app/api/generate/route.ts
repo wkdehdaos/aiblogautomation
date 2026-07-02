@@ -167,9 +167,10 @@ export async function POST(req: NextRequest) {
     const response = await stream.finalMessage()
 
     const raw = response.content[0].type === 'text' ? response.content[0].text : ''
-    const titleMatch = raw.match(/<<<TITLE>>>\s*([\s\S]*?)\s*<<<CONTENT>>>/)
-    const contentMatch = raw.match(/<<<CONTENT>>>\s*([\s\S]*?)\s*<<<END>>>/)
+    const titleMatch = raw.match(/<blog_title>\s*([\s\S]*?)\s*<\/blog_title>/)
+    const contentMatch = raw.match(/<blog_content>\s*([\s\S]*?)\s*<\/blog_content>/)
     if (!titleMatch || !contentMatch) {
+      console.error('[generate] 파싱 실패. raw:\n', raw.slice(0, 500))
       return Response.json({ error: '응답 파싱 실패' }, { status: 500 })
     }
 
