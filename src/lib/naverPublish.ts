@@ -473,6 +473,13 @@ export async function publishToNaver(
       })
     }
 
+    // 6-pre. 발행 전 본문 비어있으면 차단
+    const prePublishBody = await getBodyText(editorPage)
+    if (!prePublishBody.trim()) {
+      await snap(editorPage, '발행차단-본문비어있음', stepIndex + 1)
+      return { success: false, error: '본문이 비어 있어 발행을 중단했습니다.', lastStep: '발행전검증' }
+    }
+
     // 7. 발행 버튼 클릭
     await step('발행버튼클릭', async () => {
       const dim = editorCtx.locator('.se-popup-dim').first()
