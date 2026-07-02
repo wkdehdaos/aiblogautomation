@@ -93,82 +93,76 @@ async function pasteHtml(page: Page, html: string) {
   await page.waitForTimeout(300)
 }
 
-// 본문 CE 확보 — iframe 기반 접근을 1순위로
-async function focusBodyCE(editorCtx: LocatorCtx, editorPage: Page): Promise<Locator | null> {
-  // 1순위: 사용자가 지정한 iframe 셀렉터로 본문 직접 접근
-  const iframeBodyCandidates: Array<[string, string[]]> = [
-    ['iframe#se_iframe', [
-      '.se-content div[contenteditable="true"]',
-      '.se-content [contenteditable="true"]',
-      '[contenteditable="true"]',
-    ]],
-    ['iframe[title="본문 에디터"]', [
-      '.se-content div[contenteditable="true"]',
-      '.se-content [contenteditable="true"]',
-      '[contenteditable="true"]',
-    ]],
-    ['iframe[src*="PostWriteForm"]', [
-      '.se-content div[contenteditable="true"]',
-      '[class*="se-main-container"] ' + CE,
-      '[class*="se_content"] ' + CE,
-    ]],
+// 에디터 프레임의 본문 텍스트를 읽어 빈 본문 여부 확인
+async function getBodyText(editorPage: Page): Promise<string> {
+  const bodySelectors = [
+    '.se-content [contenteditable="true"]',
+    '.se-main-container [contenteditable="true"]',
+    '[contenteditable="true"]',
   ]
-
-  for (const [iframeSel, bodySelectors] of iframeBodyCandidates) {
-    const iframeEl = editorPage.locator(iframeSel).first()
-    if (!await iframeEl.isVisible({ timeout: 800 }).catch(() => false)) continue
-    const frame = editorPage.frameLocator(iframeSel)
-    for (const bodySel of bodySelectors) {
-      const loc = frame.locator(bodySel).first()
-      if (await loc.isVisible({ timeout: 2000 }).catch(() => false)) {
-        await loc.click({ timeout: 3000 }).catch(() => {})
-        await editorPage.waitForTimeout(300)
-        return loc
+  for (const frame of editorPage.frames()) {
+    const text = await frame.evaluate((sels: string[]) => {
+      for (const sel of sels) {
+        const el = document.querySelector(sel)
+        if (el) return el.textContent?.trim() ?? ''
       }
-    }
-  }
-
-  // 2순위: editorCtx 내 SE4 메인 컨테이너 하위 CE
-  const specificSelectors = [
-    '[class*="se-main-container"] ' + CE,
-    '[class*="se_content"] '        + CE,
-    '[class*="content_wrap"] '      + CE,
-    '[class*="se-content"] '        + CE,
-    '[class*="editor_body"] '       + CE,
-  ]
-  for (const sel of specificSelectors) {
-    const loc = editorCtx.locator(sel).first()
-    if (await loc.isVisible({ timeout: 600 }).catch(() => false)) {
-      await loc.click({ timeout: 3000 }).catch(() => {})
-      await editorPage.waitForTimeout(250)
-      return loc
-    }
-  }
-
-  // 3순위: Tab 키로 포커스 이동 후 마지막 CE
-  await editorPage.keyboard.press('Tab')
-  await editorPage.waitForTimeout(300)
-  const lastCE = editorCtx.locator(CE).last()
-  if (await lastCE.isVisible({ timeout: 1000 }).catch(() => false)) {
-    await lastCE.click({ timeout: 3000 }).catch(() => {})
-    await editorPage.waitForTimeout(250)
-    return lastCE
-  }
-
-  // 4순위: iframe 좌표 클릭 (제목 영역 아래 35%)
-  for (const [iframeSel] of iframeBodyCandidates) {
-    const iframeBox = await editorPage.locator(iframeSel).first().boundingBox().catch(() => null)
-    if (iframeBox) {
-      await editorPage.mouse.click(
-        iframeBox.x + iframeBox.width / 2,
-        iframeBox.y + Math.max(iframeBox.height * 0.35, 200),
-      )
-      await editorPage.waitForTimeout(250)
       return null
+    }, bodySelectors).catch(() => null)
+    if (text !== null) return text
+  }
+  return ''
+}
+
+// 본문 영역 클릭 — 4가지 방법 순서대로 시도
+async function tryClickBody(editorCtx: LocatorCtx, editorPage: Page): Promise<void> {
+  const clickSelectors = [
+    '.se-placeholder',
+    '.se-content',
+    'p.se-text-paragraph',
+  ]
+  for (const sel of clickSelectors) {
+    for (const ctx of [editorCtx, editorPage]) {
+      try {
+        const el = ctx.locator(sel).first()
+        if (await el.isVisible({ timeout: 700 }).catch(() => false)) {
+          await el.click({ timeout: 2000 })
+          await editorPage.waitForTimeout(500)
+          console.log(`[body-click] ${sel} 클릭 성공`)
+          return
+        }
+      } catch { /* 다음 방법으로 */ }
     }
   }
+  // 방법 4: Tab 키 이동
+  console.log('[body-click] Tab 키 이동')
+  await editorPage.keyboard.press('Tab')
+  await editorPage.waitForTimeout(500)
+}
 
-  return null
+// 방법 C: DOM 직접 텍스트 삽입 (최후 수단)
+async function insertBodyViaDOM(plainText: string, editorPage: Page): Promise<boolean> {
+  const bodySelectors = [
+    '.se-content [contenteditable="true"]',
+    '.se-main-container [contenteditable="true"]',
+    '[contenteditable="true"]',
+  ]
+  for (const frame of editorPage.frames()) {
+    const ok = await frame.evaluate((args: { text: string; sels: string[] }) => {
+      for (const sel of args.sels) {
+        const editor = document.querySelector(sel) as HTMLElement | null
+        if (editor) {
+          editor.focus()
+          editor.textContent = args.text
+          editor.dispatchEvent(new Event('input', { bubbles: true }))
+          editor.dispatchEvent(new Event('change', { bubbles: true }))
+          return true
+        }
+      }
+      return false
+    }, { text: plainText, sels: bodySelectors }).catch(() => false)
+    if (ok) { console.log('[body-dom] DOM 직접 삽입 성공'); return true }
+  }
+  return false
 }
 
 export async function publishToNaver(
