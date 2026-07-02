@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600" viewBox="0 0 800 600">
+  <rect width="800" height="600" fill="#1A0A00"/>
+  <!-- 그릴 배경 -->
+  <rect x="0" y="0" width="800" height="600" fill="#2C1A0E"/>
+  <!-- 불꽃 효과 -->
+  <ellipse cx="400" cy="580" rx="300" ry="60" fill="#FF4500" opacity="0.3"/>
+  <ellipse cx="400" cy="570" rx="200" ry="40" fill="#FF6600" opacity="0.4"/>
+  <!-- 그릴 판 -->
+  <rect x="100" y="250" width="600" height="200" rx="20" fill="#2F2F2F"/>
+  <!-- 그릴 줄 -->
+  <line x1="160" y1="250" x2="160" y2="450" stroke="#444" stroke-width="8"/>
+  <line x1="220" y1="250" x2="220" y2="450" stroke="#444" stroke-width="8"/>
+  <line x1="280" y1="250" x2="280" y2="450" stroke="#444" stroke-width="8"/>
+  <line x1="340" y1="250" x2="340" y2="450" stroke="#444" stroke-width="8"/>
+  <line x1="400" y1="250" x2="400" y2="450" stroke="#444" stroke-width="8"/>
+  <line x1="460" y1="250" x2="460" y2="450" stroke="#444" stroke-width="8"/>
+  <line x1="520" y1="250" x2="520" y2="450" stroke="#444" stroke-width="8"/>
+  <line x1="580" y1="250" x2="580" y2="450" stroke="#444" stroke-width="8"/>
+  <line x1="640" y1="250" x2="640" y2="450" stroke="#444" stroke-width="8"/>
+  <!-- 스테이크 -->
+  <ellipse cx="350" cy="350" rx="140" ry="80" fill="#8B2500"/>
+  <ellipse cx="350" cy="343" rx="130" ry="70" fill="#A0522D"/>
+  <ellipse cx="350" cy="338" rx="115" ry="58" fill="#B8621A"/>
+  <!-- 굽기 마블링 -->
+  <path d="M 280 330 Q 310 320 340 335 Q 370 345 400 330" stroke="#C8763A" stroke-width="4" fill="none" opacity="0.6"/>
+  <path d="M 290 355 Q 325 342 360 355 Q 385 362 410 352" stroke="#C8763A" stroke-width="3" fill="none" opacity="0.5"/>
+  <!-- 굽기 자국 -->
+  <line x1="280" y1="325" x2="290" y2="375" stroke="#5C2000" stroke-width="6" opacity="0.5"/>
+  <line x1="320" y1="318" x2="330" y2="368" stroke="#5C2000" stroke-width="6" opacity="0.5"/>
+  <line x1="360" y1="315" x2="370" y2="365" stroke="#5C2000" stroke-width="6" opacity="0.5"/>
+  <line x1="400" y1="318" x2="410" y2="368" stroke="#5C2000" stroke-width="6" opacity="0.5"/>
+  <!-- 불꽃 -->
+  <path d="M 550 380 Q 555 340 545 300 Q 560 330 565 280 Q 575 320 570 360 Q 580 330 582 290 Q 595 330 585 380 Z" fill="#FF6600" opacity="0.8"/>
+  <path d="M 555 375 Q 558 345 552 315 Q 563 335 568 295 Q 574 325 572 360 Z" fill="#FFD700" opacity="0.7"/>
+  <!-- 텍스트 -->
+  <text x="400" y="510" font-family="Arial, sans-serif" font-size="28" font-weight="bold" fill="#FFD700" text-anchor="middle">즉석 스테이크 코너</text>
+  <text x="400" y="548" font-family="Arial, sans-serif" font-size="18" fill="#FFA500" text-anchor="middle">홍길동 뷔페 · 직화 즉석 조리</text>
+</svg>
