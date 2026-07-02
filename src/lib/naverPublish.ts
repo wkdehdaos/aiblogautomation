@@ -14,7 +14,6 @@ const SCREENSHOT_DIR = path.resolve(process.cwd(), 'debug-screenshots')
 // aria-hidden·클립보드 히든 div 제외한 실제 에디터 contenteditable
 const CE = '[contenteditable="true"]:not([aria-hidden="true"]):not([allow])'
 
-// 스크린샷 디렉터리는 최초 1회만 생성
 let _snapDirReady = false
 async function snap(page: Page, label: string, index: number) {
   if (!_snapDirReady) { fs.mkdirSync(SCREENSHOT_DIR, { recursive: true }); _snapDirReady = true }
@@ -24,7 +23,6 @@ async function snap(page: Page, label: string, index: number) {
   }).catch(() => {})
 }
 
-// 도움말 패널 숨기기 — 모든 프레임 병렬 처리
 async function closeHelpPanels(page: Page) {
   await page.keyboard.press('Escape').catch(() => {})
   await page.waitForTimeout(150)
@@ -73,7 +71,6 @@ async function findEditorCtx(page: Page): Promise<LocatorCtx> {
   return page
 }
 
-// 툴바 버튼 탐색 — timeout 단축
 async function findToolbarBtn(ctx: LocatorCtx, ...selectors: string[]): Promise<Locator | null> {
   for (const sel of selectors) {
     try {
@@ -84,7 +81,6 @@ async function findToolbarBtn(ctx: LocatorCtx, ...selectors: string[]): Promise<
   return null
 }
 
-// HTML을 클립보드로 붙여넣기 (서식 보존)
 async function pasteHtml(page: Page, html: string) {
   await page.evaluate((h) => {
     const item = new ClipboardItem({
@@ -97,9 +93,42 @@ async function pasteHtml(page: Page, html: string) {
   await page.waitForTimeout(300)
 }
 
-// 본문 CE를 확실히 찾아 클릭 — 제목 CE와 혼동 방지
+// 본문 CE 확보 — iframe 기반 접근을 1순위로
 async function focusBodyCE(editorCtx: LocatorCtx, editorPage: Page): Promise<Locator | null> {
-  // 1순위: SE4 메인 컨테이너 하위 CE (제목과 완전히 분리된 영역)
+  // 1순위: 사용자가 지정한 iframe 셀렉터로 본문 직접 접근
+  const iframeBodyCandidates: Array<[string, string[]]> = [
+    ['iframe#se_iframe', [
+      '.se-content div[contenteditable="true"]',
+      '.se-content [contenteditable="true"]',
+      '[contenteditable="true"]',
+    ]],
+    ['iframe[title="본문 에디터"]', [
+      '.se-content div[contenteditable="true"]',
+      '.se-content [contenteditable="true"]',
+      '[contenteditable="true"]',
+    ]],
+    ['iframe[src*="PostWriteForm"]', [
+      '.se-content div[contenteditable="true"]',
+      '[class*="se-main-container"] ' + CE,
+      '[class*="se_content"] ' + CE,
+    ]],
+  ]
+
+  for (const [iframeSel, bodySelectors] of iframeBodyCandidates) {
+    const iframeEl = editorPage.locator(iframeSel).first()
+    if (!await iframeEl.isVisible({ timeout: 800 }).catch(() => false)) continue
+    const frame = editorPage.frameLocator(iframeSel)
+    for (const bodySel of bodySelectors) {
+      const loc = frame.locator(bodySel).first()
+      if (await loc.isVisible({ timeout: 2000 }).catch(() => false)) {
+        await loc.click({ timeout: 3000 }).catch(() => {})
+        await editorPage.waitForTimeout(300)
+        return loc
+      }
+    }
+  }
+
+  // 2순위: editorCtx 내 SE4 메인 컨테이너 하위 CE
   const specificSelectors = [
     '[class*="se-main-container"] ' + CE,
     '[class*="se_content"] '        + CE,
@@ -116,7 +145,7 @@ async function focusBodyCE(editorCtx: LocatorCtx, editorPage: Page): Promise<Loc
     }
   }
 
-  // 2순위: Tab 키로 이동 후 마지막 CE (body 는 보통 마지막 CE)
+  // 3순위: Tab 키로 포커스 이동 후 마지막 CE
   await editorPage.keyboard.press('Tab')
   await editorPage.waitForTimeout(300)
   const lastCE = editorCtx.locator(CE).last()
@@ -126,15 +155,19 @@ async function focusBodyCE(editorCtx: LocatorCtx, editorPage: Page): Promise<Loc
     return lastCE
   }
 
-  // 3순위: iframe 내 좌표 클릭 (제목 영역 아래 35% 지점)
-  const iframeBox = await editorPage.locator('iframe[src*="PostWriteForm"]').first().boundingBox().catch(() => null)
-  if (iframeBox) {
-    await editorPage.mouse.click(
-      iframeBox.x + iframeBox.width / 2,
-      iframeBox.y + Math.max(iframeBox.height * 0.35, 200),
-    )
-    await editorPage.waitForTimeout(250)
+  // 4순위: iframe 좌표 클릭 (제목 영역 아래 35%)
+  for (const [iframeSel] of iframeBodyCandidates) {
+    const iframeBox = await editorPage.locator(iframeSel).first().boundingBox().catch(() => null)
+    if (iframeBox) {
+      await editorPage.mouse.click(
+        iframeBox.x + iframeBox.width / 2,
+        iframeBox.y + Math.max(iframeBox.height * 0.35, 200),
+      )
+      await editorPage.waitForTimeout(250)
+      return null
+    }
   }
+
   return null
 }
 
@@ -177,6 +210,7 @@ export async function publishToNaver(
     // 1. 블로그 홈 이동
     await step('블로그홈이동', async () => {
       await page.goto(`https://blog.naver.com/${blogId}`, { waitUntil: 'domcontentloaded' })
+      await snap(editorPage, '페이지로드', 1)  // 01-페이지로드.png
     })
 
     // 2. 글쓰기 클릭
@@ -202,9 +236,8 @@ export async function publishToNaver(
       editorCtx = await findEditorCtx(editorPage)
     })
 
-    // 4. 제목 입력 — 제목 전용 셀렉터 우선 시도
+    // 4. 제목 입력
     await step('제목입력', async () => {
-      // SE4 제목: 일반 input 또는 contenteditable. 제목 전용 셀렉터를 먼저 탐색.
       const titleSelectors = [
         '.se-title-text',
         'input[class*="title"]',
@@ -218,8 +251,7 @@ export async function publishToNaver(
         const el = editorCtx.locator(sel).first()
         if (await el.isVisible({ timeout: 1000 }).catch(() => false)) {
           await el.click({ timeout: 3000 })
-          await editorPage.waitForTimeout(150)
-          // input/textarea 는 fill(), contenteditable 은 type()
+          await editorPage.waitForTimeout(300)
           const tag = await el.evaluate((n) => (n as HTMLElement).tagName.toLowerCase()).catch(() => 'div')
           if (tag === 'input' || tag === 'textarea') {
             await el.fill(title)
@@ -232,7 +264,6 @@ export async function publishToNaver(
       }
 
       if (!clicked) {
-        // 폴백: 첫 번째 CE 클릭 후 타이핑
         const titleCE = editorCtx.locator(CE).nth(0)
         if (await titleCE.isVisible({ timeout: 3000 }).catch(() => false)) {
           await titleCE.scrollIntoViewIfNeeded({ timeout: 2000 }).catch(() => {})
@@ -241,14 +272,24 @@ export async function publishToNaver(
           const box = await editorPage.locator('iframe[src*="PostWriteForm"]').first().boundingBox().catch(() => null)
           if (box) await editorPage.mouse.click(box.x + 315, box.y + 225)
         }
-        await editorPage.waitForTimeout(150)
+        await editorPage.waitForTimeout(300)
         await editorPage.keyboard.type(title)
       }
+
+      // 제목 입력 완료 후 포커스를 본문으로 명시적 이동
+      await editorPage.keyboard.press('Escape')
+      await editorPage.waitForTimeout(500)
+      await editorPage.keyboard.press('Tab')
+      await editorPage.waitForTimeout(1000)
+      await snap(editorPage, '제목입력후', 2)  // 02-제목입력후.png
     })
 
-    // 5. 본문 입력 — focusBodyCE 로 제목과 완전히 분리된 본문 CE 확보
+    // 5. 본문 입력
     await step('본문입력', async () => {
+      // 본문 CE 클릭 — iframe 기반 접근 우선
       const bodyCE = await focusBodyCE(editorCtx, editorPage)
+      await editorPage.waitForTimeout(1000)
+      await snap(editorPage, '본문클릭후', 3)  // 03-본문클릭후.png
 
       // 서체 선택
       const fontBtn = await findToolbarBtn(editorCtx,
@@ -269,7 +310,10 @@ export async function publishToNaver(
         // 서체 선택 후 본문 포커스 복귀
         if (bodyCE) {
           await bodyCE.click({ timeout: 3000 }).catch(() => {})
-          await editorPage.waitForTimeout(150)
+          await editorPage.waitForTimeout(300)
+        } else {
+          await focusBodyCE(editorCtx, editorPage)
+          await editorPage.waitForTimeout(300)
         }
       }
 
@@ -332,6 +376,8 @@ export async function publishToNaver(
           }
         }
       }
+
+      await snap(editorPage, '본문입력후', 4)  // 04-본문입력후.png
     })
 
     // 6. 위치 지도 삽입
@@ -443,7 +489,6 @@ export async function publishToNaver(
       } else {
         await editorPage.mouse.click(1172, 554)
       }
-      // waitForNavigation(deprecated) → waitForLoadState
       await editorPage.waitForLoadState('domcontentloaded', { timeout: 15000 }).catch(() => {})
     })
 
