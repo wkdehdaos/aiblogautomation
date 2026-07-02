@@ -214,6 +214,47 @@ export default function BlogFormPage() {
     }
   }
 
+  const fillTestData = async () => {
+    setForm({
+      title: '',
+      businessName: '홍길동 뷔페',
+      businessInfo:
+        '경기도 파주시 소재 패밀리 뷔페. 한식·양식·중식·디저트 코너 운영. 영업시간 11:00~21:30. 즉석 조리 코너(스테이크, 초밥, 우동) 운영. 주차 100대 가능. 미취학 아동 무료.',
+      location: '',
+      photos: [],
+      keywords: ['파주 뷔페', '파주 가족외식', '파주 무한리필'],
+      lengthOption: 'medium',
+      customLength: '',
+      tone: 'friendly',
+      seoOptimize: true,
+      mustInclude: '즉석 조리 코너, 주차 가능, 미취학 아동 무료',
+      mustExclude: '가격 할인 이벤트',
+    })
+    setKeywordInput('')
+    try {
+      const testImages = [
+        { path: '/test-images/food1.svg', name: 'food1.svg' },
+        { path: '/test-images/food2.svg', name: 'food2.svg' },
+        { path: '/test-images/food3.svg', name: 'food3.svg' },
+      ]
+      const photos = await Promise.all(
+        testImages.map(async ({ path, name }) => {
+          const res = await fetch(path)
+          const blob = await res.blob()
+          const file = new File([blob], name, { type: 'image/svg+xml' })
+          return {
+            id: `${name}-${Date.now()}-${Math.random()}`,
+            file,
+            previewUrl: URL.createObjectURL(blob),
+          }
+        })
+      )
+      setForm((prev) => ({ ...prev, photos }))
+    } catch {
+      // 이미지 없이도 테스트 가능
+    }
+  }
+
   // 드래그로 순서 변경
   const handleDragStart = (index: number) => {
     dragIndexRef.current = index
