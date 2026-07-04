@@ -139,10 +139,20 @@ export default function BlogFormPage() {
   const previewRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    if (result || streamingTitle) {
+    if (isLoading) {
+      // 로딩 시작 시 스트리밍 섹션으로 스크롤 (DOM 렌더 후)
+      const id = setTimeout(() => {
+        previewRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }, 50)
+      return () => clearTimeout(id)
+    }
+  }, [isLoading])
+
+  useEffect(() => {
+    if (result) {
       previewRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
     }
-  }, [result, streamingTitle])
+  }, [result])
 
   const set = <K extends keyof BlogFormData>(key: K, value: BlogFormData[K]) =>
     setForm((prev) => ({ ...prev, [key]: value }))
