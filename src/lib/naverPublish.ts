@@ -348,14 +348,30 @@ export async function publishToNaver(
 
           let uploaded = false
 
-          // ── 방법 1: 클립보드에 이미지 blob 쓰기 → Ctrl+V
-          //   context에 clipboard-write 권한 있으므로 OS 다이얼로그 불필요
+          // ── 방법 1: 클립보드 → Ctrl+V
+          //   clipboard API는 image/png만 안정적으로 지원 → JPEG는 Canvas로 PNG 변환
           const clipOk = await editorPage.evaluate(
             async ({ b64, mime }: { b64: string; mime: string }) => {
               try {
                 const arr = Uint8Array.from(atob(b64), c => c.charCodeAt(0))
-                const blob = new Blob([arr], { type: mime })
-                await navigator.clipboard.write([new ClipboardItem({ [mime]: blob })])
+                const srcBlob = new Blob([arr], { type: mime })
+
+                let pngBlob: Blob = srcBlob
+                if (mime !== 'image/png') {
+                  // JPEG → PNG 변환 (canvas 사용)
+                  const img = new Image()
+                  const url = URL.createObjectURL(srcBlob)
+                  await new Promise<void>((res, rej) => { img.onload = () => res(); img.onerror = rej; img.src = url })
+                  const canvas = document.createElement('canvas')
+                  canvas.width = img.naturalWidth || img.width
+                  canvas.height = img.naturalHeight || img.height
+                  const ctx = canvas.getContext('2d')!
+                  ctx.drawImage(img, 0, 0)
+                  URL.revokeObjectURL(url)
+                  pngBlob = await new Promise<Blob>(res => canvas.toBlob(b => res(b!), 'image/png'))
+                }
+
+                await navigator.clipboard.write([new ClipboardItem({ 'image/png': pngBlob })])
                 return true
               } catch { return false }
             },
@@ -364,16 +380,14 @@ export async function publishToNaver(
 
           if (clipOk) {
             await editorPage.keyboard.press('Control+V')
-            await editorPage.waitForTimeout(2500)
+            await editorPage.waitForTimeout(3000)
 
-            // SE3는 이미지 삽입 후 설정 패널을 보여줌 (placeholder: "사진 설명을 입력하세요")
-            // 또는 이미지 컨테이너 클래스로 감지
+            // SE3 이미지 설정 패널 또는 이미지 컴포넌트 감지
+            let confirmClicked = false
             for (const frame of [editorFrame, ...editorPage.frames()]) {
               const panelUp = await frame.evaluate(() => {
-                // 이미지 설정 패널 특유의 placeholder 확인
-                const els = Array.from(document.querySelectorAll('input,textarea'))
-                const hasDesc = els.some(el => (el as HTMLInputElement).placeholder?.includes('사진 설명'))
-                // 또는 이미지 컴포넌트 확인
+                const hasDesc = Array.from(document.querySelectorAll('input,textarea'))
+                  .some(el => (el as HTMLInputElement).placeholder?.includes('사진 설명'))
                 const hasImg = document.querySelectorAll(
                   '.se-image-container,.se-module-image,.se-component-image,[class*="se-image"]'
                 ).length > 0
@@ -381,15 +395,27 @@ export async function publishToNaver(
               }).catch(() => false)
 
               if (panelUp) {
-                // 설정 패널의 "확인" 클릭
+                // 설정 패널 "확인" — 3초 기다림
                 const confirmBtn = frame.locator('button:has-text("확인")').first()
-                if (await confirmBtn.isVisible({ timeout: 1500 }).catch(() => false)) {
+                if (await confirmBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
                   await confirmBtn.click()
-                  await editorPage.waitForTimeout(600)
+                  await editorPage.waitForTimeout(2000) // 네이버 CDN 업로드 대기
+                  confirmClicked = true
                 }
                 uploaded = true
-                console.log(`[img] ${section.idx + 1}번 클립보드 붙여넣기 성공`)
+                console.log(`[img] ${section.idx + 1}번 클립보드 붙여넣기 성공 (확인클릭:${confirmClicked})`)
                 break
+              }
+            }
+
+            // 패널 감지 못했지만 Ctrl+V 자체는 성공 → 이미지 직접 삽입 여부 재확인
+            if (!uploaded) {
+              const hasImg = await editorFrame.evaluate(() =>
+                document.querySelectorAll('[class*="se-image"],[class*="image_container"]').length > 0
+              ).catch(() => false)
+              if (hasImg) {
+                uploaded = true
+                console.log(`[img] ${section.idx + 1}번 클립보드 붙여넣기 성공 (직접감지)`)
               }
             }
           }
