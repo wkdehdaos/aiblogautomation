@@ -289,6 +289,8 @@ export default function BlogFormPage() {
     e.preventDefault()
     setIsLoading(true)
     setResult(null)
+    setStreamingTitle('')
+    setStreamingContent('')
 
     try {
       const fd = new FormData()
@@ -306,14 +308,55 @@ export default function BlogFormPage() {
 
       const res = await fetch('/api/generate', { method: 'POST', body: fd })
       if (!res.ok) {
-        const err = await res.json().catch(() => ({}))
-        throw new Error((err as { error?: string }).error ?? `HTTP ${res.status}`)
+        const text = await res.text().catch(() => '')
+        let msg = `HTTP ${res.status}`
+        try { msg = (JSON.parse(text) as { error?: string }).error ?? msg } catch { /* ignore */ }
+        throw new Error(msg)
       }
-      const data = (await res.json()) as { title: string; content: string; successIndices?: number[] }
-      const resultPhotos = data.successIndices
-        ? data.successIndices.map((i) => form.photos[i]).filter(Boolean)
+
+      let finalTitle = ''
+      let finalContent = ''
+      let finalSuccessIndices: number[] = []
+
+      const reader = res.body!.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ''
+
+      outer: while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+
+        const parts = buffer.split('\n\n')
+        buffer = parts.pop() ?? ''
+
+        for (const part of parts) {
+          const line = part.trim()
+          if (!line.startsWith('data: ')) continue
+          const evt = JSON.parse(line.slice(6)) as { t: string; v: unknown }
+
+          if (evt.t === 'title') {
+            finalTitle = evt.v as string
+            setStreamingTitle(finalTitle)
+          } else if (evt.t === 'chunk') {
+            finalContent += evt.v as string
+            setStreamingContent((prev) => prev + (evt.v as string))
+          } else if (evt.t === 'img') {
+            finalSuccessIndices = evt.v as number[]
+          } else if (evt.t === 'done') {
+            break outer
+          } else if (evt.t === 'error') {
+            throw new Error(evt.v as string)
+          }
+        }
+      }
+
+      const resultPhotos = finalSuccessIndices.length > 0
+        ? finalSuccessIndices.map((i) => form.photos[i]).filter(Boolean)
         : form.photos
-      setResult({ title: data.title, content: data.content, photos: resultPhotos })
+      setResult({ title: finalTitle, content: finalContent, photos: resultPhotos })
+      setStreamingTitle('')
+      setStreamingContent('')
     } catch (err) {
       console.error(err)
       alert(`글 생성 중 오류가 발생했습니다.\n${err instanceof Error ? err.message : ''}`)
