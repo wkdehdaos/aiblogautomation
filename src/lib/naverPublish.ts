@@ -241,89 +241,158 @@ export async function publishToNaver(
       await snap(editorPage, '본문이동후', 5)
     })
 
-    // ── 5. 본문 입력 ─────────────────────────────────────────────────
-    await step('본문입력', async () => {
-      // HTML 태그를 제거한 순수 텍스트로 타이핑 (keyboard.type은 서식 불가)
-      const plainContent = content
-        .replace(/<!--[\s\S]*?-->/g, '')     // HTML 주석 제거
-        .replace(/<[^>]+>/g, ' ')            // 태그 제거
-        .replace(/&nbsp;/g, ' ')
-        .replace(/\s+/g, ' ')
-        .trim()
+    // ── 5. 본문 + 이미지 입력 ────────────────────────────────────────
+    await step('본문및이미지입력', async () => {
+      const CE = '[contenteditable="true"]:not([aria-hidden="true"])'
 
-      await editorPage.keyboard.type(plainContent, { delay: 10 })
-      await editorPage.waitForTimeout(800)
+      // 에디터 포커스
+      const editorEl = editorCtx.locator(CE).first()
+      await editorEl.click()
+      await editorPage.waitForTimeout(300)
 
-      // 본문 텍스트 확인 (user 지정 방식 우선)
-      let bodyText = await editorPage.evaluate(() =>
-        document.querySelector('.se-content')?.textContent?.trim() ?? ''
-      ).catch(() => '')
-
-      // 메인 컨텍스트에서 못 찾으면 프레임 순회
-      if (!bodyText) {
-        bodyText = await getBodyText(editorPage)
+      // content를 HTML 섹션과 이미지 마커로 분리
+      type Section = { type: 'html'; html: string } | { type: 'img'; idx: number }
+      const sections: Section[] = []
+      const parts = content.split(/(<!--IMAGE_\d+-->)/)
+      for (const part of parts) {
+        const m = part.match(/<!--IMAGE_(\d+)-->/)
+        if (m) {
+          sections.push({ type: 'img', idx: parseInt(m[1]) - 1 })
+        } else if (part.trim()) {
+          sections.push({ type: 'html', html: part })
+        }
       }
+      // 이미지 마커가 없으면 전체를 HTML로
+      if (sections.length === 0) sections.push({ type: 'html', html: content })
 
-      console.log('[body] 입력 후 본문 (앞 80자):', bodyText.slice(0, 80) || '(비어있음)')
+      let bodyVerified = false
 
-      // 05-본문입력후.png
-      await snap(editorPage, '본문입력후', 5)
+      for (const section of sections) {
+        if (section.type === 'html') {
+          // 클립보드 HTML 붙여넣기 (서식 유지)
+          const canClipboard = await editorPage.evaluate(async (html: string) => {
+            try {
+              await navigator.clipboard.write([
+                new ClipboardItem({ 'text/html': new Blob([html], { type: 'text/html' }) }),
+              ])
+              return true
+            } catch { return false }
+          }, section.html)
 
-      if (!bodyText.trim()) {
-        throw new Error('본문 입력 실패: 에디터에 텍스트 없음. debug-screenshots 폴더 확인.')
-      }
-    })
+          if (canClipboard) {
+            await editorPage.keyboard.press('Control+V')
+            await editorPage.waitForTimeout(900)
+          } else {
+            // 폴백: execCommand insertHTML
+            for (const frame of [editorPage.mainFrame(), ...editorPage.frames()]) {
+              const ok = await frame.evaluate((html: string) => {
+                const el = document.querySelector<HTMLElement>('[contenteditable="true"]:not([aria-hidden])')
+                if (!el) return false
+                el.focus()
+                return document.execCommand('insertHTML', false, html)
+              }, section.html).catch(() => false)
+              if (ok) { await editorPage.waitForTimeout(600); break }
+            }
+          }
+          bodyVerified = true
 
-    // ── 6. 이미지 업로드 (본문 확인 완료 후) ────────────────────────
-    if (imagePaths.length > 0) {
-      await step('이미지업로드', async () => {
-        // 이미지는 본문 맨 끝에 순서대로 삽입
-        for (let i = 0; i < imagePaths.length; i++) {
-          const imageBtn = await findToolbarBtn(editorCtx,
+        } else {
+          // 이미지 삽입 (커서 현재 위치 기준)
+          const imgPath = imagePaths[section.idx]
+          if (!imgPath) continue
+
+          await editorPage.keyboard.press('End')
+          await editorPage.keyboard.press('Enter')
+          await editorPage.waitForTimeout(200)
+
+          const imgSelectors = [
+            'button[data-module-name="photo"]',
+            'button[aria-label="사진"]',
+            'button[aria-label*="사진"]',
+            'button[title="사진"]',
             '.se-image-toolbar-button',
             '.se-photo-toolbar-button',
             'button[class*="image"][class*="toolbar"]',
             'button[class*="photo"][class*="toolbar"]',
-            'button[aria-label="사진"]',
-            'button[title="사진"]',
-            'button[data-module-name="photo"]',
-          )
-          if (!imageBtn) { console.log(`[img] 이미지 버튼 없음, 건너뜀 (${i + 1}/${imagePaths.length})`); continue }
+          ]
 
-          const [fileChooser] = await Promise.all([
-            editorPage.waitForEvent('filechooser', { timeout: 5000 }),
-            imageBtn.click(),
-          ])
-          await fileChooser.setFiles([imagePaths[i]])
-          await editorPage.waitForTimeout(1800)
+          let imageBtn: Locator | null = null
+          for (const sel of imgSelectors) {
+            for (const ctx of [editorCtx, editorPage] as LocatorCtx[]) {
+              const btn = ctx.locator(sel).first()
+              if (await btn.isVisible({ timeout: 500 }).catch(() => false)) {
+                imageBtn = btn; break
+              }
+            }
+            if (imageBtn) break
+          }
 
-          const layoutPopup = editorCtx.locator(
+          if (!imageBtn) {
+            console.log(`[img] 이미지 버튼 없음 (${section.idx + 1}번)`)
+            continue
+          }
+
+          // 클릭 후 서브메뉴("내 PC") 처리 포함
+          let chooserPromise = editorPage.waitForEvent('filechooser', { timeout: 2500 }).catch(() => null)
+          await imageBtn.click()
+          await editorPage.waitForTimeout(500)
+
+          // 서브메뉴 "내 PC / 내 컴퓨터" 버튼 확인
+          for (const ctx of [editorCtx, editorPage] as LocatorCtx[]) {
+            const pcBtn = ctx.locator(
+              'button:has-text("내 PC"),button:has-text("내 컴퓨터"),' +
+              'button:has-text("컴퓨터에서"),[class*="local_upload"]'
+            ).first()
+            if (await pcBtn.isVisible({ timeout: 800 }).catch(() => false)) {
+              chooserPromise = editorPage.waitForEvent('filechooser', { timeout: 5000 }).catch(() => null)
+              await pcBtn.click()
+              break
+            }
+          }
+
+          const fileChooser = await chooserPromise
+          if (!fileChooser) {
+            console.log(`[img] 파일 선택창 없음 (${section.idx + 1}번)`)
+            continue
+          }
+
+          await fileChooser.setFiles([imgPath])
+          await editorPage.waitForTimeout(2000)
+
+          // 레이아웃 팝업 처리 (개별사진 선택 → 삽입)
+          const popup = editorCtx.locator(
             '.se-photo-upload-layer,.se-popup-photo,[class*="photo_layer"],[class*="photoUpload"]'
           ).first()
-          if (await layoutPopup.isVisible({ timeout: 2000 }).catch(() => false)) {
-            const singlePhoto = editorCtx.locator(
-              'button:has-text("개별사진"),label:has-text("개별사진"),[class*="single"],[class*="individual"]'
+          if (await popup.isVisible({ timeout: 1500 }).catch(() => false)) {
+            const singleBtn = editorCtx.locator(
+              'button:has-text("개별사진"),label:has-text("개별사진"),[class*="single"]'
             ).first()
-            if (await singlePhoto.isVisible({ timeout: 1500 }).catch(() => false)) {
-              await singlePhoto.click()
+            if (await singleBtn.isVisible({ timeout: 1000 }).catch(() => false)) {
+              await singleBtn.click()
               await editorPage.waitForTimeout(200)
             }
             const insertBtn = editorCtx.locator(
               'button:has-text("삽입"),button:has-text("확인"),button:has-text("적용")'
             ).first()
-            if (await insertBtn.isVisible({ timeout: 1500 }).catch(() => false)) {
+            if (await insertBtn.isVisible({ timeout: 1000 }).catch(() => false)) {
               await insertBtn.click()
               await editorPage.waitForTimeout(800)
             }
-          } else {
-            await editorPage.waitForTimeout(1500)
           }
-          await editorPage.keyboard.press('End')
-          await editorPage.keyboard.press('Enter')
-          console.log(`[img] ${i + 1}/${imagePaths.length} 삽입 완료`)
+
+          await editorPage.keyboard.press('Control+End')
+          console.log(`[img] ${section.idx + 1}번 이미지 삽입 완료`)
         }
-      })
-    }
+      }
+
+      const bodyText = await getBodyText(editorPage)
+      console.log('[body] 입력 후 본문 (앞 80자):', bodyText.slice(0, 80) || '(비어있음)')
+      await snap(editorPage, '본문입력후', 5)
+
+      if (!bodyVerified || !bodyText.trim()) {
+        throw new Error('본문 입력 실패: 에디터에 텍스트 없음. debug-screenshots 폴더 확인.')
+      }
+    })
 
     // ── 7. 위치 지도 삽입 ────────────────────────────────────────────
     if (location) {
