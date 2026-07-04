@@ -572,24 +572,55 @@ export async function publishToNaver(
       await editorPage.keyboard.press('Escape').catch(() => {})
       await editorPage.waitForTimeout(500)
       await editorPage.keyboard.press('Escape').catch(() => {})
-      await editorPage.waitForTimeout(800) // SE3 상태 안정화 대기
+      await editorPage.waitForTimeout(800)
 
-      // 발행 버튼 탐색
+      // PostWriteForm 프레임 직접 탐색 (editorCtx가 stale일 수 있으므로)
+      const pwfFrame = editorPage.frames().find(f => f.url().includes('PostWriteForm'))
+      const searchFrames = pwfFrame
+        ? [pwfFrame, editorPage.mainFrame()]
+        : [editorPage.mainFrame(), ...editorPage.frames()]
+
+      // 현재 보이는 버튼 로그 (디버그)
+      for (const frame of searchFrames.slice(0, 1)) {
+        const btns = await frame.$$eval('button', bs =>
+          bs.filter(b => (b as HTMLElement).offsetParent !== null)
+            .map(b => ({ text: b.textContent?.trim().slice(0, 20), cls: b.className.slice(0, 50) }))
+            .filter(b => b.text)
+        ).catch(() => [] as {text?: string; cls: string}[])
+        console.log('  [발행] 현재 버튼 목록:', JSON.stringify(btns.slice(0, 8)))
+      }
+
+      // 발행 버튼 탐색 — 클래스명·텍스트 모두 시도
       const publishSelectors = [
         'button[class*="publish_btn"]:not([class*="reserve"])',
         'button[class*="publish_btn"]',
+        'button:has-text("발행"):not(:has-text("예약")):not(:has-text("설정"))',
       ]
       let publishBtn: Locator | null = null
-      for (const ctx of [editorCtx, editorPage] as LocatorCtx[]) {
+
+      for (const frame of searchFrames) {
         for (const sel of publishSelectors) {
-          const btn = ctx.locator(sel).first()
-          if (await btn.isVisible({ timeout: 3000 }).catch(() => false)) {
+          const btn = frame.locator(sel).first()
+          if (await btn.isVisible({ timeout: 1500 }).catch(() => false)) {
             publishBtn = btn; break
           }
         }
         if (publishBtn) break
       }
-      if (!publishBtn) throw new Error('발행 버튼을 찾지 못했습니다.')
+      // FrameLocator(editorCtx)도 시도
+      if (!publishBtn) {
+        for (const sel of publishSelectors) {
+          const btn = editorCtx.locator(sel).first()
+          if (await btn.isVisible({ timeout: 1500 }).catch(() => false)) {
+            publishBtn = btn; break
+          }
+        }
+      }
+
+      if (!publishBtn) {
+        await snap(editorPage, '발행버튼없음', stepIndex + 1)
+        throw new Error('발행 버튼을 찾지 못했습니다.')
+      }
 
       // 발행 패널이 열릴 때까지 클릭 재시도 (최대 3회)
       const panelSel = 'button[class*="confirm_btn"],button[class*="publish_fold_btn"]'
@@ -600,16 +631,18 @@ export async function publishToNaver(
           console.log(`  [발행] 패널 미열림 — 재시도 ${attempt + 1}`)
           await editorPage.waitForTimeout(1000)
         }
-        await publishBtn.click({ force: attempt > 0 })
-        await editorPage.waitForTimeout(400)
+        await publishBtn.click({ force: attempt > 0 }).catch(() => {})
+        await editorPage.waitForTimeout(500)
 
-        // 패널 열림 확인 (최대 5초 폴링)
         const checkDeadline = Date.now() + 5000
         while (Date.now() < checkDeadline && !panelOpened) {
-          for (const ctx of [editorCtx, editorPage] as LocatorCtx[]) {
-            if (await ctx.locator(panelSel).first().isVisible({ timeout: 300 }).catch(() => false)) {
+          for (const frame of [...searchFrames, editorPage.mainFrame()]) {
+            if (await frame.locator(panelSel).first().isVisible({ timeout: 300 }).catch(() => false)) {
               panelOpened = true; break
             }
+          }
+          if (!panelOpened && await editorCtx.locator(panelSel).first().isVisible({ timeout: 300 }).catch(() => false)) {
+            panelOpened = true
           }
           if (!panelOpened) await editorPage.waitForTimeout(300)
         }
