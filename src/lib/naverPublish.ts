@@ -498,13 +498,54 @@ export async function publishToNaver(
 
     // ── 9. 발행 버튼 클릭 ────────────────────────────────────────────
     await step('발행버튼클릭', async () => {
-      const dim = editorCtx.locator('.se-popup-dim').first()
-      if (await dim.isVisible({ timeout: 800 }).catch(() => false)) {
-        await editorPage.keyboard.press('Escape')
-        await editorPage.waitForTimeout(400)
+      // dim/팝업 닫기
+      for (const ctx of [editorCtx, editorPage] as LocatorCtx[]) {
+        const dim = ctx.locator('.se-popup-dim').first()
+        if (await dim.isVisible({ timeout: 800 }).catch(() => false)) {
+          await editorPage.keyboard.press('Escape')
+          await editorPage.waitForTimeout(400)
+          break
+        }
       }
-      let publishBtn = await findToolbarBtn(editorCtx, 'button[class*="publish_btn"]', 'button:has-text("발행")')
-      if (!publishBtn) publishBtn = await findToolbarBtn(editorPage, 'button[class*="publish_btn"]', 'button:has-text("발행")')
+
+      // 발행 버튼 선택자 목록 (정확한 클래스명 우선, 넓은 범위 나중)
+      const publishSelectors = [
+        'button[class*="publish_btn"]',
+        'button.publish_btn',
+        'button[aria-label="발행"]',
+      ]
+
+      let publishBtn: Locator | null = null
+
+      // 최대 10초간 재시도
+      const deadline = Date.now() + 10_000
+      while (!publishBtn && Date.now() < deadline) {
+        for (const ctx of [editorCtx, editorPage] as LocatorCtx[]) {
+          for (const sel of publishSelectors) {
+            const btn = ctx.locator(sel).first()
+            if (await btn.isVisible({ timeout: 800 }).catch(() => false)) {
+              publishBtn = btn
+              break
+            }
+          }
+          if (publishBtn) break
+        }
+        // 프레임 직접 순회
+        if (!publishBtn) {
+          for (const frame of editorPage.frames()) {
+            for (const sel of publishSelectors) {
+              const btn = frame.locator(sel).first()
+              if (await btn.isVisible({ timeout: 500 }).catch(() => false)) {
+                publishBtn = btn
+                break
+              }
+            }
+            if (publishBtn) break
+          }
+        }
+        if (!publishBtn) await editorPage.waitForTimeout(500)
+      }
+
       if (!publishBtn) throw new Error('발행 버튼을 찾지 못했습니다.')
       await publishBtn.click()
     })
