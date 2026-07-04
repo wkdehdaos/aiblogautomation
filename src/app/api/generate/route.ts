@@ -286,21 +286,12 @@ export async function POST(req: NextRequest) {
           messages: [{ role: 'user', content: userContent }],
         })
 
-        let deltaCount = 0
         anthropicStream.on('streamEvent', (event) => {
           if (event.type !== 'content_block_delta') return
           const delta = event.delta as {type?: string; partial_json?: string}
           if (delta.type !== 'input_json_delta') return
 
-          deltaCount++
-          const partial = delta.partial_json ?? ''
-
-          // 디버그: 첫 3개 delta를 raw로 전송
-          if (deltaCount <= 3) {
-            enqueue({ t: 'debug', v: `delta#${deltaCount}: ${JSON.stringify(partial).slice(0, 60)}` })
-          }
-
-          const { title, content, done } = extractor.process(partial)
+          const { title, content, done } = extractor.process(delta.partial_json ?? '')
 
           if (title && !titleFlushed) {
             enqueue({ t: 'title', v: title })
@@ -310,10 +301,7 @@ export async function POST(req: NextRequest) {
           if (done) enqueue({ t: 'done', v: successIndices })
         })
 
-        const finalMsg = await anthropicStream.finalMessage()
-        const toolBlock = finalMsg.content.find(b => b.type === 'tool_use')
-        const toolInput = toolBlock ? JSON.stringify((toolBlock as {input?: unknown}).input).slice(0, 200) : 'none'
-        enqueue({ t: 'debug', v: `stop=${finalMsg.stop_reason} deltas=${deltaCount} tool=${toolInput}` })
+        await anthropicStream.finalMessage()
 
         // 스트림 이벤트에서 done이 안 왔을 경우 보장
         enqueue({ t: 'done', v: successIndices })
