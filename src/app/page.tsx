@@ -139,10 +139,10 @@ export default function BlogFormPage() {
   const previewRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    if (result) {
+    if (result || streamingTitle) {
       previewRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
     }
-  }, [result])
+  }, [result, streamingTitle])
 
   const set = <K extends keyof BlogFormData>(key: K, value: BlogFormData[K]) =>
     setForm((prev) => ({ ...prev, [key]: value }))
