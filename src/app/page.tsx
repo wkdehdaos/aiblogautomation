@@ -752,6 +752,34 @@ export default function BlogFormPage() {
           </p>
         </form>
 
+        {/* 스트리밍 실시간 미리보기 */}
+        {isLoading && (streamingTitle || streamingContent) && (
+          <div ref={previewRef} className="mt-10 space-y-6">
+            <div className="flex items-center gap-3">
+              <div className="h-px flex-1 bg-gray-200" />
+              <span className="flex items-center gap-1.5 text-sm font-medium text-indigo-500">
+                <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-indigo-400" />
+                실시간 생성 중
+              </span>
+              <div className="h-px flex-1 bg-gray-200" />
+            </div>
+            <section className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-indigo-100">
+              {streamingTitle && (
+                <h2 className="mb-6 text-xl font-bold text-gray-900">{streamingTitle}</h2>
+              )}
+              <div
+                className="text-sm leading-relaxed text-gray-700
+                  [&_h2]:mb-2 [&_h2]:mt-6 [&_h2]:text-lg [&_h2]:font-bold [&_h2]:text-gray-900
+                  [&_h3]:mb-1 [&_h3]:mt-4 [&_h3]:text-base [&_h3]:font-semibold [&_h3]:text-gray-800
+                  [&_li]:mt-1 [&_p]:mt-2 [&_p]:leading-relaxed
+                  [&_strong]:font-semibold [&_strong]:text-gray-900
+                  [&_ul]:mt-2 [&_ul]:list-disc [&_ul]:pl-5"
+                dangerouslySetInnerHTML={{ __html: streamingContent }}
+              />
+            </section>
+          </div>
+        )}
+
         {/* 미리보기 섹션 */}
         {result && (
           <div ref={previewRef} className="mt-10 space-y-6">
