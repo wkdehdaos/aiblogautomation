@@ -1,5 +1,5 @@
-import Anthropic from '@anthropic-ai/sdk'
-import type { BetaMessageParam, BetaToolResultBlockParam, BetaContentBlockParam } from '@anthropic-ai/sdk/resources/beta/messages/messages'
+import OpenAI from 'openai'
+import type { ResponseInputItem, ResponseComputerToolCall } from 'openai/resources/responses/responses'
 import { chromium, Page } from 'playwright'
 import path from 'path'
 import fs from 'fs'
@@ -13,127 +13,80 @@ const DISPLAY_WIDTH = 1280
 const DISPLAY_HEIGHT = 800
 const TIMEOUT_MS = 2 * 60 * 1000
 
-const KEY_MAP: Record<string, string> = {
-  Return: 'Enter',
-  BackSpace: 'Backspace',
-  Delete: 'Delete',
-  Escape: 'Escape',
-  Tab: 'Tab',
-  space: 'Space',
-  'ctrl+a': 'Control+a',
-  'ctrl+c': 'Control+c',
-  'ctrl+v': 'Control+v',
-  'ctrl+z': 'Control+z',
-  End: 'End',
-  Home: 'Home',
-  'Page_Up': 'PageUp',
-  'Page_Down': 'PageDown',
-  Up: 'ArrowUp',
-  Down: 'ArrowDown',
-  Left: 'ArrowLeft',
-  Right: 'ArrowRight',
-}
+type CUAction = NonNullable<ResponseComputerToolCall['action']>
 
 async function takeScreenshot(page: Page): Promise<string> {
   const buf = await page.screenshot({ type: 'png' })
-  return buf.toString('base64')
+  return `data:image/png;base64,${buf.toString('base64')}`
 }
 
-async function execAction(page: Page, input: Record<string, unknown>): Promise<void> {
-  const action = input.action as string
+// OpenAI keypress keys 배열 → Playwright press 문자열
+function toPlaywrightKey(keys: string[]): string {
+  const map: Record<string, string> = {
+    Return: 'Enter', BackSpace: 'Backspace', Delete: 'Delete',
+    Escape: 'Escape', Tab: 'Tab', space: 'Space', End: 'End', Home: 'Home',
+    Page_Up: 'PageUp', Page_Down: 'PageDown',
+    Up: 'ArrowUp', Down: 'ArrowDown', Left: 'ArrowLeft', Right: 'ArrowRight',
+    ctrl: 'Control', cmd: 'Meta', alt: 'Alt', shift: 'Shift',
+  }
+  return keys.map(k => map[k] ?? k).join('+')
+}
 
-  switch (action) {
+async function execAction(page: Page, action: CUAction): Promise<void> {
+  switch (action.type) {
     case 'screenshot':
       break
 
-    case 'left_click': {
-      const [x, y] = input.coordinate as [number, number]
-      await page.mouse.click(x, y)
+    case 'click': {
+      const btn = action.button === 'right' ? 'right' : action.button === 'wheel' ? 'middle' : 'left'
+      await page.mouse.click(action.x, action.y, { button: btn as 'left' | 'right' | 'middle' })
       await page.waitForTimeout(600)
       break
     }
 
-    case 'double_click': {
-      const [x, y] = input.coordinate as [number, number]
-      await page.mouse.dblclick(x, y)
+    case 'double_click':
+      await page.mouse.dblclick(action.x, action.y)
       await page.waitForTimeout(600)
       break
-    }
 
-    case 'right_click': {
-      const [x, y] = input.coordinate as [number, number]
-      await page.mouse.click(x, y, { button: 'right' })
-      await page.waitForTimeout(400)
-      break
-    }
-
-    case 'middle_click': {
-      const [x, y] = input.coordinate as [number, number]
-      await page.mouse.click(x, y, { button: 'middle' })
-      await page.waitForTimeout(400)
-      break
-    }
-
-    case 'mouse_move': {
-      const [x, y] = input.coordinate as [number, number]
-      await page.mouse.move(x, y)
+    case 'move':
+      await page.mouse.move(action.x, action.y)
       await page.waitForTimeout(200)
       break
-    }
 
-    case 'left_click_drag': {
-      const [startX, startY] = input.start_coordinate as [number, number]
-      const [endX, endY] = input.coordinate as [number, number]
-      await page.mouse.move(startX, startY)
+    case 'drag': {
+      const pts = action.path
+      if (pts.length < 2) break
+      await page.mouse.move(pts[0].x, pts[0].y)
       await page.mouse.down()
-      await page.mouse.move(endX, endY, { steps: 10 })
+      for (const pt of pts.slice(1)) await page.mouse.move(pt.x, pt.y, { steps: 5 })
       await page.mouse.up()
       await page.waitForTimeout(400)
       break
     }
 
-    case 'type': {
-      const text = input.text as string
-      await page.keyboard.type(text, { delay: 15 })
+    case 'keypress':
+      await page.keyboard.press(toPlaywrightKey(action.keys))
       await page.waitForTimeout(300)
       break
-    }
 
-    case 'key': {
-      const rawKey = input.text as string
-      const keys = rawKey.split('+')
-      if (keys.length > 1) {
-        // modifier+key 조합
-        const modifiers = keys.slice(0, -1).map(k =>
-          k === 'ctrl' ? 'Control' : k === 'cmd' ? 'Meta' : k.charAt(0).toUpperCase() + k.slice(1)
-        )
-        const mainKey = keys[keys.length - 1]
-        const combo = [...modifiers, mainKey].join('+')
-        await page.keyboard.press(KEY_MAP[rawKey] ?? combo)
-      } else {
-        await page.keyboard.press(KEY_MAP[rawKey] ?? rawKey)
-      }
+    case 'type':
+      await page.keyboard.type(action.text, { delay: 15 })
       await page.waitForTimeout(300)
       break
-    }
 
-    case 'scroll': {
-      const [x, y] = input.coordinate as [number, number]
-      const direction = input.direction as string
-      const amount = (input.amount as number) ?? 3
-      const deltaX = direction === 'left' ? -120 * amount : direction === 'right' ? 120 * amount : 0
-      const deltaY = direction === 'up' ? -120 * amount : direction === 'down' ? 120 * amount : 0
-      await page.mouse.move(x, y)
-      await page.mouse.wheel(deltaX, deltaY)
+    case 'scroll':
+      await page.mouse.move(action.x, action.y)
+      await page.mouse.wheel(action.scroll_x * 80, action.scroll_y * 80)
       await page.waitForTimeout(300)
       break
-    }
 
-    case 'cursor_position':
+    case 'wait':
+      await page.waitForTimeout(1000)
       break
 
     default:
-      console.log(`[computer-use] 알 수 없는 액션: ${action}`)
+      console.log(`[cua] 알 수 없는 액션: ${(action as CUAction).type}`)
   }
 }
 
@@ -147,7 +100,7 @@ export async function publishToNaverAI(
   if (!blogId) return { success: false, error: 'NAVER_BLOG_ID 환경변수 미설정' }
   if (!fs.existsSync(SESSION_PATH)) return { success: false, error: '세션 없음. npm run naver-login 먼저 실행' }
 
-  const client = new Anthropic()
+  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 
   const browser = await chromium.launch({ headless: false })
   const context = await browser.newContext({
@@ -163,7 +116,7 @@ export async function publishToNaverAI(
     await page.goto(`https://blog.naver.com/${blogId}`, { waitUntil: 'domcontentloaded' })
     await page.waitForTimeout(1000)
 
-    // ── 2. 글쓰기 클릭 → 에디터 페이지 ─────────────────────────────
+    // ── 2. 글쓰기 클릭 ───────────────────────────────────────────────
     const [newPage] = await Promise.all([
       context.waitForEvent('page', { timeout: 8000 }).catch(() => null),
       page.click('a[href*="PostWriteForm"], a:has-text("글쓰기"), button:has-text("글쓰기")', { timeout: 10000 }),
@@ -176,104 +129,98 @@ export async function publishToNaverAI(
     await editorPage.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {})
     await editorPage.waitForTimeout(2500)
 
-    // ── 3. Computer Use 루프 ─────────────────────────────────────────
+    // ── 3. OpenAI CUA 루프 ───────────────────────────────────────────
     const imageNote = imagePaths.length > 0
-      ? `\n업로드할 이미지 파일 경로: ${imagePaths.join(', ')}\n이미지는 에디터 툴바의 사진/이미지 버튼을 통해 업로드하거나, 본문 입력 완료 후 진행하세요.`
-      : '\n이미지는 없습니다.'
+      ? `\n업로드할 이미지: ${imagePaths.join(', ')}`
+      : ''
 
-    const systemPrompt =
-      `당신은 네이버 블로그 글쓰기 자동화 에이전트입니다. 화면을 보고 제목 입력 → 본문 입력 → 발행 순서로 블로그 글을 작성해주세요.\n` +
+    const instructions =
+      `당신은 네이버 블로그 글쓰기 자동화 에이전트입니다. 화면을 보고 ` +
+      `제목 입력 → 본문 입력 → 발행 순서로 블로그 글을 작성해주세요.\n` +
       `입력할 제목: ${title}\n` +
       `입력할 본문: ${content}` +
       imageNote +
-      `\n각 단계가 완료되면 다음 단계로 넘어가세요.\n` +
-      `모든 작업(발행 포함)이 완전히 완료되었을 때만 "발행완료"라고 텍스트로 응답하세요.`
+      `\n모든 작업이 완료되어 발행까지 마치면 "발행완료"라고 텍스트로 응답하세요.`
 
-    const messages: BetaMessageParam[] = []
-
-    // 초기 스크린샷을 첫 user 메시지에 포함
     const initScreenshot = await takeScreenshot(editorPage)
-    messages.push({
-      role: 'user',
-      content: [
-        {
-          type: 'image',
-          source: { type: 'base64', media_type: 'image/png', data: initScreenshot },
-        } as BetaContentBlockParam,
-        {
-          type: 'text',
-          text: '네이버 블로그 글쓰기 페이지입니다. 지시에 따라 작업을 시작해주세요.',
-        } as BetaContentBlockParam,
-      ],
+
+    const tools = [{
+      type: 'computer_use_preview' as const,
+      display_width: DISPLAY_WIDTH,
+      display_height: DISPLAY_HEIGHT,
+      environment: 'browser' as const,
+    }]
+
+    // 첫 번째 API 호출
+    let response = await openai.responses.create({
+      model: 'computer-use-preview',
+      instructions,
+      tools,
+      input: [{
+        role: 'user',
+        content: [
+          { type: 'input_image', image_url: initScreenshot },
+          { type: 'input_text', text: '네이버 블로그 글쓰기 페이지입니다. 작업을 시작해주세요.' },
+        ],
+      }] as ResponseInputItem[],
+      truncation: 'auto',
     })
 
     const deadline = Date.now() + TIMEOUT_MS
 
     while (Date.now() < deadline) {
-      const response = await client.beta.messages.create({
-        model: 'claude-3-5-sonnet-20241022',
-        max_tokens: 4096,
-        system: systemPrompt,
-        tools: [
-          {
-            type: 'computer_20241022',
-            name: 'computer',
-            display_width_px: DISPLAY_WIDTH,
-            display_height_px: DISPLAY_HEIGHT,
-          },
-        ],
-        messages,
-        betas: ['computer-use-2024-10-22'],
-      })
+      // 텍스트 응답 확인 (발행완료 체크)
+      for (const item of response.output) {
+        if (item.type === 'message') {
+          const text = item.content.map(c => ('text' in c ? c.text : '')).join('')
+          console.log(`[cua] 텍스트 응답: ${text.slice(0, 100)}`)
+          if (text.includes('발행완료') || text.includes('발행 완료')) {
+            await browser.close()
+            return { success: true, url: editorPage.url() }
+          }
+        }
+      }
 
-      // 어시스턴트 응답을 메시지 히스토리에 추가
-      messages.push({ role: 'assistant', content: response.content })
-
-      // 텍스트 응답 확인 → 발행완료 체크
-      const textBlocks = response.content.filter(b => b.type === 'text')
-      const isDone = textBlocks.some(
-        b => b.type === 'text' && (b.text.includes('발행완료') || b.text.includes('발행 완료'))
+      // computer_call 항목 처리
+      const calls = response.output.filter(
+        (item): item is ResponseComputerToolCall => item.type === 'computer_call'
       )
-      if (isDone) {
-        console.log('[computer-use] 발행완료 확인')
+
+      if (calls.length === 0) {
+        console.log('[cua] computer_call 없음, 루프 종료')
         break
       }
 
-      // 도구 사용 없이 종료된 경우
-      if (response.stop_reason !== 'tool_use') {
-        console.log(`[computer-use] stop_reason=${response.stop_reason}, 루프 종료`)
-        break
-      }
-
-      // 도구 액션 실행 후 결과(스크린샷) 반환
-      const toolResults: BetaToolResultBlockParam[] = []
-      for (const block of response.content) {
-        if (block.type !== 'tool_use') continue
-
-        const input = block.input as Record<string, unknown>
-        console.log(`[computer-use] action=${input.action}`, input.coordinate ?? input.text ?? '')
-
-        await execAction(editorPage, input)
-
+      // 액션 실행 후 스크린샷 수집
+      const callOutputs: ResponseInputItem[] = []
+      for (const call of calls) {
+        if (call.action) {
+          console.log(`[cua] action=${call.action.type}`, JSON.stringify(call.action).slice(0, 80))
+          await execAction(editorPage, call.action)
+        }
         const screenshot = await takeScreenshot(editorPage)
-        toolResults.push({
-          type: 'tool_result',
-          tool_use_id: block.id,
-          content: [
-            {
-              type: 'image',
-              source: { type: 'base64', media_type: 'image/png', data: screenshot },
-            },
-          ],
-        })
+        callOutputs.push({
+          type: 'computer_call_output',
+          call_id: call.call_id,
+          output: { type: 'computer_screenshot', image_url: screenshot },
+          // 안전 검사 acknowledged
+          acknowledged_safety_checks: call.pending_safety_checks.map(c => ({ id: c.id })),
+        } as ResponseInputItem)
       }
 
-      messages.push({ role: 'user', content: toolResults })
+      // 다음 턴
+      response = await openai.responses.create({
+        model: 'computer-use-preview',
+        previous_response_id: response.id,
+        tools,
+        input: callOutputs,
+        truncation: 'auto',
+      })
     }
 
     if (Date.now() >= deadline) {
       await browser.close().catch(() => {})
-      return { success: false, error: '5분 타임아웃: AI가 발행을 완료하지 못했습니다.' }
+      return { success: false, error: '2분 타임아웃: AI가 발행을 완료하지 못했습니다.' }
     }
 
     const finalUrl = editorPage.url()
