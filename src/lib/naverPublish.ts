@@ -364,14 +364,33 @@ export async function publishToNaver(
 
           if (clipOk) {
             await editorPage.keyboard.press('Control+V')
-            await editorPage.waitForTimeout(3000)
-            // 이미지 컴포넌트가 생겼는지 확인
-            const imgInEditor = await editorFrame.evaluate(() =>
-              document.querySelectorAll('.se-image-container,[class*="image_component"],[class*="imageComponent"]').length > 0
-            ).catch(() => false)
-            if (imgInEditor) {
-              uploaded = true
-              console.log(`[img] ${section.idx + 1}번 클립보드 붙여넣기 성공`)
+            await editorPage.waitForTimeout(2500)
+
+            // SE3는 이미지 삽입 후 설정 패널을 보여줌 (placeholder: "사진 설명을 입력하세요")
+            // 또는 이미지 컨테이너 클래스로 감지
+            for (const frame of [editorFrame, ...editorPage.frames()]) {
+              const panelUp = await frame.evaluate(() => {
+                // 이미지 설정 패널 특유의 placeholder 확인
+                const els = Array.from(document.querySelectorAll('input,textarea'))
+                const hasDesc = els.some(el => (el as HTMLInputElement).placeholder?.includes('사진 설명'))
+                // 또는 이미지 컴포넌트 확인
+                const hasImg = document.querySelectorAll(
+                  '.se-image-container,.se-module-image,.se-component-image,[class*="se-image"]'
+                ).length > 0
+                return hasDesc || hasImg
+              }).catch(() => false)
+
+              if (panelUp) {
+                // 설정 패널의 "확인" 클릭
+                const confirmBtn = frame.locator('button:has-text("확인")').first()
+                if (await confirmBtn.isVisible({ timeout: 1500 }).catch(() => false)) {
+                  await confirmBtn.click()
+                  await editorPage.waitForTimeout(600)
+                }
+                uploaded = true
+                console.log(`[img] ${section.idx + 1}번 클립보드 붙여넣기 성공`)
+                break
+              }
             }
           }
 
