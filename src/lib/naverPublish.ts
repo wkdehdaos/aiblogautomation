@@ -337,36 +337,51 @@ export async function publishToNaver(
           await editorPage.keyboard.press('Enter')
           await editorPage.waitForTimeout(300)
 
-          // ── 방법 A: 이미지 버튼 클릭 전 숨겨진 file input이 있으면 먼저 시도
+          const imgBase64 = fs.readFileSync(imgPath).toString('base64')
+          const imgMime = imgPath.endsWith('.png') ? 'image/png' : 'image/jpeg'
+          const imgName = `photo-${section.idx + 1}.jpg`
+
+          // ── 방법 A: JS로 File 객체 생성 → file input change 이벤트 트리거
+          //   (파일 다이얼로그 없이, 이미 메모리에 있는 이미지를 직접 주입)
           let uploaded = false
           for (const frame of [editorFrame, ...editorPage.frames()]) {
-            const inputs = await frame.$$('input[type="file"]')
-            if (inputs.length > 0) {
-              try {
-                await inputs[0].setInputFiles([imgPath])
-                // SE3가 파일을 인식했는지 확인 (미리보기 썸네일 등장)
-                const preview = await frame.waitForSelector(
-                  'img[src*="blob:"],img[src*="data:"],img[class*="thumb"],[class*="preview"]',
-                  { timeout: 2000 }
-                ).catch(() => null)
-                if (preview) {
-                  await editorPage.waitForTimeout(1500)
-                  uploaded = true
-                  console.log(`[img] ${section.idx + 1}번 hidden file input 업로드`)
-                  break
-                }
-              } catch { /* 실패하면 다음 방법 */ }
+            const result = await frame.evaluate(
+              async ({ b64, mime, name }: { b64: string; mime: string; name: string }) => {
+                const byteStr = atob(b64)
+                const ab = new ArrayBuffer(byteStr.length)
+                const ia = new Uint8Array(ab)
+                for (let i = 0; i < byteStr.length; i++) ia[i] = byteStr.charCodeAt(i)
+                const file = new File([ab], name, { type: mime })
+
+                // file input 탐색
+                const input = document.querySelector<HTMLInputElement>('input[type="file"]')
+                if (!input) return null
+
+                const dt = new DataTransfer()
+                dt.items.add(file)
+                Object.defineProperty(input, 'files', { value: dt.files, writable: false })
+                input.dispatchEvent(new Event('change', { bubbles: true }))
+                input.dispatchEvent(new Event('input', { bubbles: true }))
+                return 'injected'
+              },
+              { b64: imgBase64, mime: imgMime, name: imgName }
+            ).catch(() => null)
+
+            if (result === 'injected') {
+              // SE3가 이미지를 처리할 시간
+              await editorPage.waitForTimeout(3000)
+              uploaded = true
+              console.log(`[img] ${section.idx + 1}번 JS 직접 주입 성공`)
+              break
             }
           }
 
-          // ── 방법 B: 이미지 버튼 클릭 → filechooser 이벤트 캡처
+          // ── 방법 B: 이미지 버튼 클릭 → file input에 주입 (패널이 열린 뒤 input 생김)
           if (!uploaded) {
-            // 이미지 버튼 탐색 (테스트 로그 기반: se-image-toolbar-button 확인됨)
             const imgBtnSels = [
               '.se-image-toolbar-button',
               '.se-insert-menu-button-image',
               'button[class*="image"][class*="toolbar"]',
-              'button[class*="photo"][class*="toolbar"]',
             ]
             let imageBtn: Locator | null = null
             for (const sel of imgBtnSels) {
@@ -380,62 +395,58 @@ export async function publishToNaver(
             }
 
             if (imageBtn) {
-              // filechooser 대기 먼저 등록 (10초)
-              const chooserPromise = editorPage.waitForEvent('filechooser', { timeout: 10_000 }).catch(() => null)
+              // filechooser도 함께 대기 (패널이 직접 다이얼로그를 여는 버전 대응)
+              const chooserPromise = editorPage.waitForEvent('filechooser', { timeout: 8_000 }).catch(() => null)
               await imageBtn.click()
-              await editorPage.waitForTimeout(700)
+              await editorPage.waitForTimeout(800)
 
-              // 디버그: 패널 내 버튼 목록 로그
-              const panelBtns = await editorFrame.$$eval('button', bs =>
-                bs.filter(b => (b as HTMLElement).offsetParent !== null)
-                  .map(b => ({ text: b.textContent?.trim().slice(0, 20), cls: b.className.slice(0, 40) }))
-              ).catch(() => [] as {text?: string; cls: string}[])
-              if (panelBtns.length > 0) {
-                console.log('[img] 패널 내 버튼:', JSON.stringify(panelBtns.slice(0, 8)))
-              }
+              // 패널 열린 뒤 file input 주입 재시도
+              for (const frame of [editorFrame, ...editorPage.frames()]) {
+                const result = await frame.evaluate(
+                  async ({ b64, mime, name }: { b64: string; mime: string; name: string }) => {
+                    const byteStr = atob(b64)
+                    const ab = new ArrayBuffer(byteStr.length)
+                    const ia = new Uint8Array(ab)
+                    for (let i = 0; i < byteStr.length; i++) ia[i] = byteStr.charCodeAt(i)
+                    const file = new File([ab], name, { type: mime })
+                    const input = document.querySelector<HTMLInputElement>('input[type="file"]')
+                    if (!input) return null
+                    const dt = new DataTransfer()
+                    dt.items.add(file)
+                    Object.defineProperty(input, 'files', { value: dt.files, writable: false })
+                    input.dispatchEvent(new Event('change', { bubbles: true }))
+                    return 'injected'
+                  },
+                  { b64: imgBase64, mime: imgMime, name: imgName }
+                ).catch(() => null)
 
-              // "내 PC" 계열 버튼 클릭 (다양한 텍스트 시도)
-              const pcSels = [
-                'button:has-text("내 PC에서")',
-                'button:has-text("내 PC")',
-                'button:has-text("내 컴퓨터")',
-                'button:has-text("PC에서")',
-                'button:has-text("직접")',
-                'button:has-text("가져오기")',
-                '[class*="local"]',
-                '[class*="from_pc"]',
-                '[class*="upload_btn"]',
-              ]
-              pcLoop: for (const frame of [editorFrame, ...editorPage.frames()]) {
-                for (const sel of pcSels) {
-                  const btn = frame.locator(sel).first()
-                  if (await btn.isVisible({ timeout: 500 }).catch(() => false)) {
-                    await btn.click()
-                    console.log(`[img] 서브패널 버튼 클릭: ${sel}`)
-                    break pcLoop
-                  }
+                if (result === 'injected') {
+                  await editorPage.waitForTimeout(3000)
+                  uploaded = true
+                  console.log(`[img] ${section.idx + 1}번 패널 후 JS 주입 성공`)
+                  break
                 }
               }
 
-              const fileChooser = await chooserPromise
-              if (fileChooser) {
-                await fileChooser.setFiles([imgPath])
-                await editorPage.waitForTimeout(2500)
-                uploaded = true
-                console.log(`[img] ${section.idx + 1}번 filechooser 업로드`)
-              }
-
-              // filechooser 없으면 패널 내 file input 재탐색
+              // JS 주입도 실패 → filechooser 폴백
               if (!uploaded) {
+                // "내 PC" 버튼 클릭 시도
+                const pcSels = ['button:has-text("내 PC")', 'button:has-text("내 PC에서")',
+                  'button:has-text("직접")', '[class*="local"]', '[class*="upload_btn"]']
                 for (const frame of [editorFrame, ...editorPage.frames()]) {
-                  const input = await frame.waitForSelector('input[type="file"]', { timeout: 2000 }).catch(() => null)
-                  if (input) {
-                    await input.setInputFiles([imgPath])
-                    await editorPage.waitForTimeout(2000)
-                    uploaded = true
-                    console.log(`[img] ${section.idx + 1}번 패널 file input 업로드`)
-                    break
+                  for (const sel of pcSels) {
+                    const btn = frame.locator(sel).first()
+                    if (await btn.isVisible({ timeout: 400 }).catch(() => false)) {
+                      await btn.click(); break
+                    }
                   }
+                }
+                const fileChooser = await chooserPromise
+                if (fileChooser) {
+                  await fileChooser.setFiles([imgPath])
+                  await editorPage.waitForTimeout(2500)
+                  uploaded = true
+                  console.log(`[img] ${section.idx + 1}번 filechooser 업로드`)
                 }
               }
             }
@@ -467,7 +478,7 @@ export async function publishToNaver(
             }
           }
 
-          // 삽입 후 패널이 남아있으면 닫기
+          // 삽입 후 패널 잔재 닫기
           await editorPage.keyboard.press('Escape').catch(() => {})
           await editorPage.waitForTimeout(200)
 
