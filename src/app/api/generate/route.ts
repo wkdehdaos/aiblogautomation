@@ -14,6 +14,12 @@ const TONE_MAP: Record<string, string> = {
   informative: '정보 전달 중심의 명확한 말투',
 }
 
+const MAX_TOKENS_MAP: Record<string, number> = {
+  short: 1500,
+  medium: 2500,
+  long: 4096,
+}
+
 async function toImageBlock(file: File): Promise<Anthropic.ImageBlockParam | null> {
   try {
     const rawBuffer = Buffer.from(await file.arrayBuffer() as ArrayBuffer)
@@ -30,24 +36,116 @@ async function toImageBlock(file: File): Promise<Anthropic.ImageBlockParam | nul
   }
 }
 
-// tool_use로 구조화된 출력을 강제 — title/content 필드가 스키마로 보장됨
 const BLOG_TOOL: Anthropic.Tool = {
   name: 'write_blog_post',
   description: '블로그 글 제목과 HTML 본문을 작성합니다.',
   input_schema: {
     type: 'object' as const,
     properties: {
-      title: {
-        type: 'string',
-        description: '블로그 글 제목 (이모지·HTML 태그 없는 순수 텍스트)',
-      },
-      content: {
-        type: 'string',
-        description: '블로그 본문 HTML',
-      },
+      title: { type: 'string', description: '블로그 글 제목 (이모지·HTML 태그 없는 순수 텍스트)' },
+      content: { type: 'string', description: '블로그 본문 HTML' },
     },
     required: ['title', 'content'],
   },
+}
+
+// tool input JSON에서 content 값을 실시간으로 추출하는 클래스
+class ContentExtractor {
+  private buf = ''
+  private state: 'searching' | 'streaming' | 'done' = 'searching'
+  private escape = false
+  private unicodeSeq = ''
+  private readonly MARKER = '"content":"'
+
+  process(delta: string): { title?: string; content?: string; done?: boolean } {
+    if (this.state === 'done') return {}
+
+    if (this.state === 'searching') {
+      this.buf += delta
+      const idx = this.buf.indexOf(this.MARKER)
+      if (idx === -1) {
+        // 경계 처리: MARKER 길이만큼 꼬리 유지
+        this.buf = this.buf.slice(-(this.MARKER.length - 1))
+        return {}
+      }
+
+      // title 추출
+      let title: string | undefined
+      const titleMatch = this.buf.slice(0, idx).match(/"title":"((?:[^"\\]|\\.)*)"/)
+      if (titleMatch) {
+        try { title = JSON.parse(`"${titleMatch[1]}"`) } catch { /* ignore */ }
+      }
+
+      this.state = 'streaming'
+      const rest = this.buf.slice(idx + this.MARKER.length)
+      this.buf = ''
+      const { content, done } = this.streamChunk(rest)
+      return { title, content, done }
+    }
+
+    // state === 'streaming'
+    return this.streamChunk(delta)
+  }
+
+  private streamChunk(text: string): { content?: string; done?: boolean } {
+    let out = ''
+    let i = 0
+
+    // 이전 청크에서 이어진 유니코드 시퀀스 처리
+    if (this.unicodeSeq.length > 0) {
+      const need = 4 - this.unicodeSeq.length
+      const take = Math.min(need, text.length)
+      this.unicodeSeq += text.slice(0, take)
+      i = take
+      if (this.unicodeSeq.length === 4) {
+        out += String.fromCharCode(parseInt(this.unicodeSeq, 16))
+        this.unicodeSeq = ''
+      }
+    }
+
+    while (i < text.length) {
+      const ch = text[i]
+      if (this.escape) {
+        this.escape = false
+        switch (ch) {
+          case '"': out += '"'; break
+          case '\\': out += '\\'; break
+          case '/': out += '/'; break
+          case 'n': out += '\n'; break
+          case 'r': out += '\r'; break
+          case 't': out += '\t'; break
+          case 'b': out += '\b'; break
+          case 'f': out += '\f'; break
+          case 'u': {
+            const hex = text.slice(i + 1, i + 5)
+            if (hex.length === 4) {
+              out += String.fromCharCode(parseInt(hex, 16))
+              i += 4
+            } else {
+              this.unicodeSeq = hex
+              i = text.length // 다음 청크에서 처리
+            }
+            break
+          }
+          default: out += ch
+        }
+      } else if (ch === '\\') {
+        this.escape = true
+      } else if (ch === '"') {
+        this.state = 'done'
+        return { content: out || undefined, done: true }
+      } else {
+        out += ch
+      }
+      i++
+    }
+
+    return { content: out || undefined }
+  }
+}
+
+function sseEvent(obj: object): Uint8Array {
+  return new TextEncoder().encode(`data: ${JSON.stringify(obj)}\n\n`)
 }
 
 export async function POST(req: NextRequest) {
@@ -57,41 +155,39 @@ export async function POST(req: NextRequest) {
 
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
-  try {
-    const formData = await req.formData()
+  const formData = await req.formData()
+  const businessName = formData.get('businessName') as string
+  const businessInfo = formData.get('businessInfo') as string
+  const keywordsRaw = (formData.get('keywords') as string) || '[]'
+  const keywords: string[] = JSON.parse(keywordsRaw)
+  const lengthOption = (formData.get('lengthOption') as string) || 'medium'
+  const customLength = formData.get('customLength') as string
+  const tone = (formData.get('tone') as string) || 'friendly'
+  const seoOptimize = formData.get('seoOptimize') === 'true'
+  const mustInclude = (formData.get('mustInclude') as string) || ''
+  const mustExclude = (formData.get('mustExclude') as string) || ''
+  const titleHint = (formData.get('title') as string) || ''
+  const photoFiles = formData.getAll('photos') as File[]
 
-    const businessName = formData.get('businessName') as string
-    const businessInfo = formData.get('businessInfo') as string
-    const keywordsRaw = (formData.get('keywords') as string) || '[]'
-    const keywords: string[] = JSON.parse(keywordsRaw)
-    const lengthOption = (formData.get('lengthOption') as string) || 'medium'
-    const customLength = formData.get('customLength') as string
-    const tone = (formData.get('tone') as string) || 'friendly'
-    const seoOptimize = formData.get('seoOptimize') === 'true'
-    const mustInclude = (formData.get('mustInclude') as string) || ''
-    const mustExclude = (formData.get('mustExclude') as string) || ''
-    const titleHint = (formData.get('title') as string) || ''
+  const results = await Promise.allSettled(photoFiles.map(toImageBlock))
+  const successIndices: number[] = []
+  const imageBlocks: Anthropic.ImageBlockParam[] = []
+  results.forEach((r, idx) => {
+    if (r.status === 'fulfilled' && r.value !== null) {
+      imageBlocks.push(r.value)
+      successIndices.push(idx)
+    }
+  })
 
-    const photoFiles = formData.getAll('photos') as File[]
+  const lengthInstruction =
+    lengthOption === 'custom' && customLength
+      ? `${customLength}자 내외`
+      : (LENGTH_MAP[lengthOption] ?? '1000자 내외')
 
-    const results = await Promise.allSettled(photoFiles.map(toImageBlock))
-    const successIndices: number[] = []
-    const imageBlocks: Anthropic.ImageBlockParam[] = []
-    results.forEach((r, idx) => {
-      if (r.status === 'fulfilled' && r.value !== null) {
-        imageBlocks.push(r.value)
-        successIndices.push(idx)
-      }
-    })
+  const toneInstruction = TONE_MAP[tone] ?? '친근하고 편안한 말투'
+  const maxTokens = MAX_TOKENS_MAP[lengthOption] ?? 2500
 
-    const lengthInstruction =
-      lengthOption === 'custom' && customLength
-        ? `${customLength}자 내외`
-        : (LENGTH_MAP[lengthOption] ?? '1000자 내외')
-
-    const toneInstruction = TONE_MAP[tone] ?? '친근하고 편안한 말투'
-
-    const systemPrompt = `당신은 10년 경력의 한국 파워블로거입니다. write_blog_post 툴을 반드시 호출해 title과 content를 채워주세요.
+  const systemPrompt = `당신은 10년 경력의 한국 파워블로거입니다. write_blog_post 툴을 반드시 호출해 title과 content를 채워주세요.
 
 ## 글쓰기 스타일
 - 1인칭 시점, 친한 친구에게 말하듯 자연스럽고 솔직하게 — 문장이 딱딱하지 않고 흐르듯 이어져야 함
@@ -142,49 +238,77 @@ export async function POST(req: NextRequest) {
 - 예: "[업체명] 다녀온 솔직 후기, 기대보다 괜찮았던 이유"
 - 이모지·HTML 태그 없이`
 
-    const userLines = [
-      `업체명: ${businessName}`,
-      `업체 정보:\n${businessInfo}`,
-      keywords.length > 0 && `키워드: ${keywords.join(', ')}`,
-      `글 길이: ${lengthInstruction}`,
-      `말투: ${toneInstruction}`,
-      seoOptimize && 'SEO 최적화: 주요 키워드를 제목과 본문에 자연스럽게 반복 활용해 주세요.',
-      mustInclude && `반드시 포함할 내용: ${mustInclude}`,
-      mustExclude && `반드시 제외할 내용: ${mustExclude}`,
-      titleHint && `제목 힌트 (참고용): ${titleHint}`,
-      imageBlocks.length > 0 &&
-        `첨부 사진 ${imageBlocks.length}장이 있습니다. content 본문 중간 적절한 위치마다 <!--IMAGE_1-->, <!--IMAGE_2--> ... <!--IMAGE_${imageBlocks.length}--> 마커를 삽입해 주세요.`,
-    ]
-      .filter(Boolean)
-      .join('\n')
+  const userLines = [
+    `업체명: ${businessName}`,
+    `업체 정보:\n${businessInfo}`,
+    keywords.length > 0 && `키워드: ${keywords.join(', ')}`,
+    `글 길이: ${lengthInstruction}`,
+    `말투: ${toneInstruction}`,
+    seoOptimize && 'SEO 최적화: 주요 키워드를 제목과 본문에 자연스럽게 반복 활용해 주세요.',
+    mustInclude && `반드시 포함할 내용: ${mustInclude}`,
+    mustExclude && `반드시 제외할 내용: ${mustExclude}`,
+    titleHint && `제목 힌트 (참고용): ${titleHint}`,
+    imageBlocks.length > 0 &&
+      `첨부 사진 ${imageBlocks.length}장이 있습니다. content 본문 중간 적절한 위치마다 <!--IMAGE_1-->, <!--IMAGE_2--> ... <!--IMAGE_${imageBlocks.length}--> 마커를 삽입해 주세요.`,
+  ]
+    .filter(Boolean)
+    .join('\n')
 
-    const userContent: Anthropic.MessageParam['content'] = [
-      { type: 'text', text: userLines },
-      ...imageBlocks,
-    ]
+  const userContent: Anthropic.MessageParam['content'] = [
+    { type: 'text', text: userLines },
+    ...imageBlocks,
+  ]
 
-    const response = await client.messages.create({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 4096,
-      system: systemPrompt,
-      tools: [BLOG_TOOL],
-      tool_choice: { type: 'tool', name: 'write_blog_post' },
-      messages: [{ role: 'user', content: userContent }],
-    })
+  const stream = new ReadableStream({
+    async start(controller) {
+      const enqueue = (obj: object) => controller.enqueue(sseEvent(obj))
 
-    const toolUse = response.content.find(
-      (block): block is Anthropic.ToolUseBlock => block.type === 'tool_use'
-    )
-    if (!toolUse) {
-      console.error('[generate] tool_use 블록 없음:', JSON.stringify(response.content).slice(0, 300))
-      return Response.json({ error: '응답 파싱 실패' }, { status: 500 })
-    }
+      try {
+        const extractor = new ContentExtractor()
+        let titleFlushed = false
 
-    const { title, content } = toolUse.input as { title: string; content: string }
-    return Response.json({ title, content, successIndices })
-  } catch (err) {
-    console.error('[generate] error:', err)
-    const message = err instanceof Error ? err.message : '알 수 없는 오류'
-    return Response.json({ error: message }, { status: 500 })
-  }
+        const anthropicStream = client.messages.stream({
+          model: 'claude-sonnet-4-6',
+          max_tokens: maxTokens,
+          system: systemPrompt,
+          tools: [BLOG_TOOL],
+          tool_choice: { type: 'tool', name: 'write_blog_post' },
+          messages: [{ role: 'user', content: userContent }],
+        })
+
+        anthropicStream.on('streamEvent', (event) => {
+          if (
+            event.type !== 'content_block_delta' ||
+            event.delta.type !== 'input_json_delta'
+          ) return
+
+          const { title, content, done } = extractor.process(event.delta.partial_json)
+
+          if (title && !titleFlushed) {
+            enqueue({ t: 'title', v: title })
+            titleFlushed = true
+          }
+          if (content) enqueue({ t: 'chunk', v: content })
+          if (done) enqueue({ t: 'done', v: successIndices })
+        })
+
+        await anthropicStream.finalMessage()
+
+        // 스트림 이벤트에서 done이 안 왔을 경우 보장
+        enqueue({ t: 'done', v: successIndices })
+      } catch (err) {
+        enqueue({ t: 'error', v: err instanceof Error ? err.message : '오류 발생' })
+      } finally {
+        controller.close()
+      }
+    },
+  })
+
+  return new Response(stream, {
+    headers: {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      Connection: 'keep-alive',
+    },
+  })
 }
