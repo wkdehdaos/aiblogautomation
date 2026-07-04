@@ -299,13 +299,16 @@ export async function POST(req: NextRequest) {
             titleFlushed = true
           }
           if (content) enqueue({ t: 'chunk', v: content })
-          if (done) enqueue({ t: 'done', v: successIndices })
+          if (done && !doneFlushed) {
+            enqueue({ t: 'done', v: successIndices })
+            doneFlushed = true
+          }
         })
 
         await anthropicStream.finalMessage()
 
-        // 스트림 이벤트에서 done이 안 왔을 경우 보장
-        enqueue({ t: 'done', v: successIndices })
+        // extractor에서 done이 안 왔을 경우 보장 (max_tokens 등)
+        if (!doneFlushed) enqueue({ t: 'done', v: successIndices })
       } catch (err) {
         enqueue({ t: 'error', v: err instanceof Error ? err.message : '오류 발생' })
       } finally {
