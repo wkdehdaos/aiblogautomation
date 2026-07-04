@@ -557,15 +557,11 @@ export async function publishToNaver(
 
     // ── 9. 발행 버튼 클릭 ────────────────────────────────────────────
     await step('발행버튼클릭', async () => {
-      // dim/팝업 닫기
-      for (const ctx of [editorCtx, editorPage] as LocatorCtx[]) {
-        const dim = ctx.locator('.se-popup-dim').first()
-        if (await dim.isVisible({ timeout: 800 }).catch(() => false)) {
-          await editorPage.keyboard.press('Escape')
-          await editorPage.waitForTimeout(400)
-          break
-        }
-      }
+      // 이미지 패널 포함 모든 팝업 닫기 (Escape × 2)
+      await editorPage.keyboard.press('Escape').catch(() => {})
+      await editorPage.waitForTimeout(300)
+      await editorPage.keyboard.press('Escape').catch(() => {})
+      await editorPage.waitForTimeout(400)
 
       // 발행 버튼 선택자 목록 (정확한 클래스명 우선, 넓은 범위 나중)
       const publishSelectors = [
