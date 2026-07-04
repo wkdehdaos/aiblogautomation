@@ -125,8 +125,6 @@ export default function BlogFormPage() {
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [result, setResult] = useState<GenerateResult | null>(null)
-  const [streamingTitle, setStreamingTitle] = useState('')
-  const [streamingContent, setStreamingContent] = useState('')
   const [isPublishing, setIsPublishing] = useState(false)
   const [publishStatus, setPublishStatus] = useState<{ type: 'success' | 'error'; message: string; step?: string } | null>(null)
   const [selectedFont, setSelectedFont] = useState('나눔고딕')
@@ -137,16 +135,6 @@ export default function BlogFormPage() {
   const dragIndexRef = useRef<number | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const previewRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (isLoading) {
-      // 로딩 시작 시 스트리밍 섹션으로 스크롤 (DOM 렌더 후)
-      const id = setTimeout(() => {
-        previewRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-      }, 50)
-      return () => clearTimeout(id)
-    }
-  }, [isLoading])
 
   useEffect(() => {
     if (result) {
@@ -299,8 +287,6 @@ export default function BlogFormPage() {
     e.preventDefault()
     setIsLoading(true)
     setResult(null)
-    setStreamingTitle('')
-    setStreamingContent('')
 
     try {
       const fd = new FormData()
@@ -318,55 +304,14 @@ export default function BlogFormPage() {
 
       const res = await fetch('/api/generate', { method: 'POST', body: fd })
       if (!res.ok) {
-        const text = await res.text().catch(() => '')
-        let msg = `HTTP ${res.status}`
-        try { msg = (JSON.parse(text) as { error?: string }).error ?? msg } catch { /* ignore */ }
-        throw new Error(msg)
+        const err = await res.json().catch(() => ({}))
+        throw new Error((err as { error?: string }).error ?? `HTTP ${res.status}`)
       }
-
-      let finalTitle = ''
-      let finalContent = ''
-      let finalSuccessIndices: number[] = []
-
-      const reader = res.body!.getReader()
-      const decoder = new TextDecoder()
-      let buffer = ''
-
-      outer: while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-        buffer += decoder.decode(value, { stream: true })
-
-        const parts = buffer.split('\n\n')
-        buffer = parts.pop() ?? ''
-
-        for (const part of parts) {
-          const line = part.trim()
-          if (!line.startsWith('data: ')) continue
-          const evt = JSON.parse(line.slice(6)) as { t: string; v: unknown }
-
-          if (evt.t === 'title') {
-            finalTitle = evt.v as string
-            setStreamingTitle(finalTitle)
-          } else if (evt.t === 'chunk') {
-            finalContent += evt.v as string
-            setStreamingContent((prev) => prev + (evt.v as string))
-          } else if (evt.t === 'img') {
-            finalSuccessIndices = evt.v as number[]
-          } else if (evt.t === 'done') {
-            break outer
-          } else if (evt.t === 'error') {
-            throw new Error(evt.v as string)
-          }
-        }
-      }
-
-      const resultPhotos = finalSuccessIndices.length > 0
-        ? finalSuccessIndices.map((i) => form.photos[i]).filter(Boolean)
+      const data = (await res.json()) as { title: string; content: string; successIndices?: number[] }
+      const resultPhotos = data.successIndices
+        ? data.successIndices.map((i) => form.photos[i]).filter(Boolean)
         : form.photos
-      setResult({ title: finalTitle, content: finalContent, photos: resultPhotos })
-      setStreamingTitle('')
-      setStreamingContent('')
+      setResult({ title: data.title, content: data.content, photos: resultPhotos })
     } catch (err) {
       console.error(err)
       alert(`글 생성 중 오류가 발생했습니다.\n${err instanceof Error ? err.message : ''}`)
@@ -761,48 +706,6 @@ export default function BlogFormPage() {
             <span className="text-red-400">*</span> 표시는 필수 입력 항목입니다
           </p>
         </form>
-
-        {/* 스트리밍 실시간 미리보기 — 로딩 시작과 동시에 표시 */}
-        {isLoading && (
-          <div ref={previewRef} className="mt-10 space-y-6">
-            <div className="flex items-center gap-3">
-              <div className="h-px flex-1 bg-gray-200" />
-              <span className="flex items-center gap-1.5 text-sm font-medium text-indigo-500">
-                <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-indigo-400" />
-                실시간 생성 중
-              </span>
-              <div className="h-px flex-1 bg-gray-200" />
-            </div>
-            <section className="min-h-[180px] rounded-2xl bg-white p-6 shadow-sm ring-1 ring-indigo-100">
-              {streamingTitle ? (
-                <h2 className="mb-6 text-xl font-bold text-gray-900">{streamingTitle}</h2>
-              ) : (
-                <div className="mb-6 h-7 w-3/4 animate-pulse rounded-lg bg-gray-100" />
-              )}
-              {streamingContent ? (
-                <div
-                  className="text-sm leading-relaxed text-gray-700
-                    [&_h2]:mb-2 [&_h2]:mt-6 [&_h2]:text-lg [&_h2]:font-bold [&_h2]:text-gray-900
-                    [&_h3]:mb-1 [&_h3]:mt-4 [&_h3]:text-base [&_h3]:font-semibold [&_h3]:text-gray-800
-                    [&_li]:mt-1 [&_p]:mt-2 [&_p]:leading-relaxed
-                    [&_strong]:font-semibold [&_strong]:text-gray-900
-                    [&_ul]:mt-2 [&_ul]:list-disc [&_ul]:pl-5"
-                  dangerouslySetInnerHTML={{ __html: streamingContent }}
-                />
-              ) : (
-                <div className="space-y-2.5">
-                  {[...Array(5)].map((_, i) => (
-                    <div
-                      key={i}
-                      className="h-4 animate-pulse rounded bg-gray-100"
-                      style={{ width: `${[100, 92, 96, 88, 75][i]}%` }}
-                    />
-                  ))}
-                </div>
-              )}
-            </section>
-          </div>
-        )}
 
         {/* 미리보기 섹션 */}
         {result && (

@@ -245,10 +245,27 @@ export async function publishToNaver(
     await step('본문및이미지입력', async () => {
       const CE = '[contenteditable="true"]:not([aria-hidden="true"])'
 
-      // 에디터 포커스
-      const editorEl = editorCtx.locator(CE).first()
-      await editorEl.click()
-      await editorPage.waitForTimeout(300)
+      // 에디터 포커스 — step4 Enter 후 이미 본문에 있을 수 있으므로
+      // isVisible 짧게 확인 후 클릭, 안 되면 그냥 진행
+      for (const ctx of [editorCtx, editorPage] as LocatorCtx[]) {
+        const el = ctx.locator(CE).first()
+        if (await el.isVisible({ timeout: 3000 }).catch(() => false)) {
+          await el.click({ timeout: 5000 }).catch(() => {})
+          break
+        }
+      }
+      // 프레임 직접 순회
+      if (editorPage.frames().length > 1) {
+        for (const frame of editorPage.frames()) {
+          if (!frame.url()) continue
+          const el = frame.locator(CE).first()
+          if (await el.isVisible({ timeout: 1000 }).catch(() => false)) {
+            await el.click({ timeout: 3000 }).catch(() => {})
+            break
+          }
+        }
+      }
+      await editorPage.waitForTimeout(400)
 
       // content를 HTML 섹션과 이미지 마커로 분리
       type Section = { type: 'html'; html: string } | { type: 'img'; idx: number }
@@ -262,36 +279,51 @@ export async function publishToNaver(
           sections.push({ type: 'html', html: part })
         }
       }
-      // 이미지 마커가 없으면 전체를 HTML로
       if (sections.length === 0) sections.push({ type: 'html', html: content })
+
+      // PostWriteForm 프레임 (클립보드·execCommand용)
+      const editorFrame = editorPage.frames().find(f => f.url().includes('PostWriteForm'))
+        ?? editorPage.mainFrame()
 
       let bodyVerified = false
 
       for (const section of sections) {
         if (section.type === 'html') {
-          // 클립보드 HTML 붙여넣기 (서식 유지)
-          const canClipboard = await editorPage.evaluate(async (html: string) => {
-            try {
-              await navigator.clipboard.write([
-                new ClipboardItem({ 'text/html': new Blob([html], { type: 'text/html' }) }),
-              ])
-              return true
-            } catch { return false }
-          }, section.html)
+          // 1순위: execCommand insertHTML (프레임 내에서 직접 실행 — 가장 안정적)
+          const inserted = await editorFrame.evaluate((html: string) => {
+            const el = document.querySelector<HTMLElement>('[contenteditable="true"]:not([aria-hidden])')
+            if (!el) return false
+            el.focus()
+            return document.execCommand('insertHTML', false, html)
+          }, section.html).catch(() => false)
 
-          if (canClipboard) {
-            await editorPage.keyboard.press('Control+V')
-            await editorPage.waitForTimeout(900)
+          if (inserted) {
+            await editorPage.waitForTimeout(600)
           } else {
-            // 폴백: execCommand insertHTML
-            for (const frame of [editorPage.mainFrame(), ...editorPage.frames()]) {
-              const ok = await frame.evaluate((html: string) => {
-                const el = document.querySelector<HTMLElement>('[contenteditable="true"]:not([aria-hidden])')
-                if (!el) return false
-                el.focus()
-                return document.execCommand('insertHTML', false, html)
-              }, section.html).catch(() => false)
-              if (ok) { await editorPage.waitForTimeout(600); break }
+            // 2순위: 클립보드 → Ctrl+V (프레임 컨텍스트에서 write)
+            const canClipboard = await editorFrame.evaluate(async (html: string) => {
+              try {
+                await navigator.clipboard.write([
+                  new ClipboardItem({ 'text/html': new Blob([html], { type: 'text/html' }) }),
+                ])
+                return true
+              } catch { return false }
+            }, section.html).catch(() => false)
+
+            if (canClipboard) {
+              await editorPage.keyboard.press('Control+V')
+              await editorPage.waitForTimeout(900)
+            } else {
+              // 3순위: 다른 프레임 모두 시도
+              for (const frame of editorPage.frames()) {
+                const ok = await frame.evaluate((html: string) => {
+                  const el = document.querySelector<HTMLElement>('[contenteditable="true"]:not([aria-hidden])')
+                  if (!el) return false
+                  el.focus()
+                  return document.execCommand('insertHTML', false, html)
+                }, section.html).catch(() => false)
+                if (ok) { await editorPage.waitForTimeout(600); break }
+              }
             }
           }
           bodyVerified = true
