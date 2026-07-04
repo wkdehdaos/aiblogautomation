@@ -216,14 +216,14 @@ export async function publishToNaverAI(
         system: systemPrompt,
         tools: [
           {
-            type: 'computer_20241022',
+            type: 'computer_20250124',
             name: 'computer',
             display_width_px: DISPLAY_WIDTH,
             display_height_px: DISPLAY_HEIGHT,
           },
         ],
         messages,
-        betas: ['computer-use-2024-10-22'],
+        betas: ['computer-use-2025-01-24'],
       })
 
       // 어시스턴트 응답을 메시지 히스토리에 추가
