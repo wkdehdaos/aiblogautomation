@@ -382,40 +382,41 @@ export async function publishToNaver(
             await editorPage.keyboard.press('Control+V')
             await editorPage.waitForTimeout(3000)
 
-            // SE3 이미지 설정 패널 또는 이미지 컴포넌트 감지
+            // SE3 이미지 설정 패널 감지 + JS로 "확인" 클릭 (CSS hidden이어도 동작)
             let confirmClicked = false
             for (const frame of [editorFrame, ...editorPage.frames()]) {
-              const panelUp = await frame.evaluate(() => {
-                const hasDesc = Array.from(document.querySelectorAll('input,textarea'))
-                  .some(el => (el as HTMLInputElement).placeholder?.includes('사진 설명'))
+              const result = await frame.evaluate(() => {
+                // 이미지 컴포넌트 또는 설정 패널 존재 여부
                 const hasImg = document.querySelectorAll(
                   '.se-image-container,.se-module-image,.se-component-image,[class*="se-image"]'
                 ).length > 0
-                return hasDesc || hasImg
-              }).catch(() => false)
+                const hasDesc = Array.from(document.querySelectorAll('input,textarea'))
+                  .some(el => (el as HTMLInputElement).placeholder?.includes('사진 설명'))
 
-              if (panelUp) {
-                // 설정 패널 "확인" — 3초 기다림
-                const confirmBtn = frame.locator('button:has-text("확인")').first()
-                if (await confirmBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
-                  await confirmBtn.click()
-                  await editorPage.waitForTimeout(2000) // 네이버 CDN 업로드 대기
-                  confirmClicked = true
+                if (!hasImg && !hasDesc) return 'none'
+
+                // "취소" 버튼과 같은 부모에 있는 "확인" 버튼 우선 (설정 패널용)
+                const allBtns = Array.from(document.querySelectorAll<HTMLElement>('button'))
+                const cancelBtn = allBtns.find(b => b.textContent?.trim() === '취소')
+                if (cancelBtn?.parentElement) {
+                  const siblings = Array.from(cancelBtn.parentElement.querySelectorAll<HTMLElement>('button'))
+                  const cfm = siblings.find(b => b.textContent?.trim() === '확인')
+                  if (cfm) { cfm.click(); return 'confirmed-sibling' }
                 }
-                uploaded = true
-                console.log(`[img] ${section.idx + 1}번 클립보드 붙여넣기 성공 (확인클릭:${confirmClicked})`)
-                break
-              }
-            }
 
-            // 패널 감지 못했지만 Ctrl+V 자체는 성공 → 이미지 직접 삽입 여부 재확인
-            if (!uploaded) {
-              const hasImg = await editorFrame.evaluate(() =>
-                document.querySelectorAll('[class*="se-image"],[class*="image_container"]').length > 0
-              ).catch(() => false)
-              if (hasImg) {
+                // 넓게 "확인" 버튼 탐색
+                const cfm = allBtns.find(b => b.textContent?.trim() === '확인')
+                if (cfm) { cfm.click(); return 'confirmed-text' }
+
+                return 'detected-no-confirm'
+              }).catch(() => 'error')
+
+              if (result !== 'none' && result !== 'error') {
+                confirmClicked = result.startsWith('confirmed')
                 uploaded = true
-                console.log(`[img] ${section.idx + 1}번 클립보드 붙여넣기 성공 (직접감지)`)
+                console.log(`[img] ${section.idx + 1}번 클립보드 붙여넣기 성공 (${result})`)
+                if (confirmClicked) await editorPage.waitForTimeout(3000) // CDN 업로드 대기
+                break
               }
             }
           }
