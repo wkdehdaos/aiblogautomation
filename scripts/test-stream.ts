@@ -2,13 +2,19 @@ import Anthropic from '@anthropic-ai/sdk'
 import * as fs from 'fs'
 import * as path from 'path'
 
-// .env.local 수동 파싱
+// .env.local 수동 파싱 (BOM + CRLF 처리)
 const envPath = path.resolve(process.cwd(), '.env.local')
 if (fs.existsSync(envPath)) {
-  fs.readFileSync(envPath, 'utf-8').split('\n').forEach(line => {
-    const m = line.match(/^([^=]+)=(.*)$/)
-    if (m) process.env[m[1].trim()] = m[2].trim()
-  })
+  fs.readFileSync(envPath, 'utf-8')
+    .replace(/^﻿/, '')   // BOM 제거
+    .split(/\r?\n/)
+    .forEach(line => {
+      const eqIdx = line.indexOf('=')
+      if (eqIdx === -1) return
+      const key = line.slice(0, eqIdx).trim()
+      const val = line.slice(eqIdx + 1).trim()
+      if (key) process.env[key] = val
+    })
 }
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
