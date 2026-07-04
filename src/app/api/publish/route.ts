@@ -4,7 +4,7 @@ import path from 'path'
 import fs from 'fs'
 import os from 'os'
 
-export const maxDuration = 300 // 5분 타임아웃 (Vercel 등 서버리스 환경)
+export const maxDuration = 120 // 2분 타임아웃 (Vercel 등 서버리스 환경)
 
 export async function POST(req: NextRequest) {
   const { title, content, images } = (await req.json()) as {
