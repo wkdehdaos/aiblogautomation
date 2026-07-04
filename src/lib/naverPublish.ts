@@ -712,7 +712,7 @@ export async function publishToNaver(
 
       // 발행 후 포스트 URL(숫자 ID)로 이동할 때까지 대기
       await editorPage.waitForURL(
-        url => /\/\d{10,}/.test(url) || (!url.includes('PostWriteForm') && !url.includes('Redirect=Write')),
+        url => { const s = url.toString(); return /\/\d{10,}/.test(s) || (!s.includes('PostWriteForm') && !s.includes('Redirect=Write')) },
         { timeout: 15000 }
       ).catch(() => {})
       await editorPage.waitForTimeout(1000)
