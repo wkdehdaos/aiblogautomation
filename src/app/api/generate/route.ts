@@ -50,34 +50,44 @@ const BLOG_TOOL: Anthropic.Tool = {
 }
 
 // tool input JSON에서 content 값을 실시간으로 추출하는 클래스
+// 주의: Claude 스트리밍은 "content": "value" (공백 포함) 형태로 올 수 있음
 class ContentExtractor {
   private buf = ''
   private state: 'searching' | 'streaming' | 'done' = 'searching'
   private escape = false
   private unicodeSeq = ''
-  private readonly MARKER = '"content":"'
+
+  // "content" 키 이후의 첫 " 위치를 찾아 content 값 시작 인덱스 반환 (-1이면 미발견)
+  private findContentStart(s: string): number {
+    const keyIdx = s.indexOf('"content"')
+    if (keyIdx === -1) return -1
+    // "content" 이후에 : 와 " 를 찾음 (사이에 공백 허용)
+    let i = keyIdx + '"content"'.length
+    while (i < s.length && (s[i] === ' ' || s[i] === '\t' || s[i] === '\r' || s[i] === '\n')) i++
+    if (i >= s.length || s[i] !== ':') return -1
+    i++ // skip ':'
+    while (i < s.length && (s[i] === ' ' || s[i] === '\t' || s[i] === '\r' || s[i] === '\n')) i++
+    if (i >= s.length || s[i] !== '"') return -1
+    return i + 1 // content 값의 첫 문자 위치
+  }
 
   process(delta: string): { title?: string; content?: string; done?: boolean } {
     if (this.state === 'done') return {}
 
     if (this.state === 'searching') {
       this.buf += delta
-      const idx = this.buf.indexOf(this.MARKER)
-      if (idx === -1) {
-        // 버퍼 전체 유지 (title JSON은 소량이므로 메모리 문제 없음)
-        // 이전의 slice(-10) 트리밍이 마커 마지막 '"'를 제거해 탐지 실패하는 버그 수정
-        return {}
-      }
+      const contentStart = this.findContentStart(this.buf)
+      if (contentStart === -1) return {}
 
-      // title 추출
+      // title 추출 (공백 포함 형식 모두 지원)
       let title: string | undefined
-      const titleMatch = this.buf.slice(0, idx).match(/"title":"((?:[^"\\]|\\.)*)"/)
+      const titleMatch = this.buf.slice(0, contentStart).match(/"title"\s*:\s*"((?:[^"\\]|\\.)*)"/)
       if (titleMatch) {
         try { title = JSON.parse(`"${titleMatch[1]}"`) } catch { /* ignore */ }
       }
 
       this.state = 'streaming'
-      const rest = this.buf.slice(idx + this.MARKER.length)
+      const rest = this.buf.slice(contentStart)
       this.buf = ''
       const { content, done } = this.streamChunk(rest)
       return { title, content, done }
