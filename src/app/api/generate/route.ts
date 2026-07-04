@@ -276,6 +276,7 @@ export async function POST(req: NextRequest) {
       try {
         const extractor = new ContentExtractor()
         let titleFlushed = false
+        let doneFlushed = false
 
         const anthropicStream = client.messages.stream({
           model: 'claude-sonnet-4-6',
