@@ -37,15 +37,28 @@ async function closeHelpPanels(page: Page) {
 }
 
 async function dismissDraftModal(page: Page) {
-  const modal = page.locator('text=작성 중인 글이 있습니다').first()
-  if (!await modal.isVisible({ timeout: 1500 }).catch(() => false)) return
-  const cancelBtn = page.locator('button:has-text("취소")').first()
-  if (await cancelBtn.isVisible({ timeout: 1000 }).catch(() => false)) {
-    await cancelBtn.click()
-  } else {
-    await page.keyboard.press('Escape')
+  // 메인 페이지 + 모든 iframe 순회하여 임시저장 모달 찾기
+  const contexts = [page, ...page.frames().map(f => page.frameLocator(`iframe[src="${f.url()}"]`))]
+  for (const ctx of [page, ...page.frames()]) {
+    const locator = ctx === page
+      ? page.locator('text=작성 중인 글이 있습니다').first()
+      : (page.frameLocator(`iframe[src="${(ctx as import('playwright').Frame).url()}"]`)).locator('text=작성 중인 글이 있습니다').first()
+    if (!await locator.isVisible({ timeout: 800 }).catch(() => false)) continue
+
+    // 모달 발견 → 취소(거절) 클릭
+    const cancelBtn = ctx === page
+      ? page.locator('button:has-text("취소")').first()
+      : (page.frameLocator(`iframe[src="${(ctx as import('playwright').Frame).url()}"]`)).locator('button:has-text("취소")').first()
+
+    if (await cancelBtn.isVisible({ timeout: 800 }).catch(() => false)) {
+      await cancelBtn.click()
+    } else {
+      await page.keyboard.press('Escape')
+    }
+    await page.waitForTimeout(600)
+    return
   }
-  await page.waitForTimeout(600)
+  void contexts // suppress unused warning
 }
 
 // PostWriteForm iframe 우선 → 메인 페이지 순으로 탐색
