@@ -276,13 +276,20 @@ export async function POST(req: NextRequest) {
           messages: [{ role: 'user', content: userContent }],
         })
 
+        const eventLog: string[] = []
         anthropicStream.on('streamEvent', (event) => {
+          // 디버그: 이벤트 타입 수집
+          const key = event.type + (('delta' in event && event.delta) ? ':' + (event.delta as {type?:string}).type : '')
+          if (!eventLog.includes(key)) eventLog.push(key)
+
           if (
             event.type !== 'content_block_delta' ||
-            event.delta.type !== 'input_json_delta'
+            !('delta' in event) ||
+            (event.delta as {type?:string}).type !== 'input_json_delta'
           ) return
 
-          const { title, content, done } = extractor.process(event.delta.partial_json)
+          const partial = (event.delta as {partial_json?: string}).partial_json ?? ''
+          const { title, content, done } = extractor.process(partial)
 
           if (title && !titleFlushed) {
             enqueue({ t: 'title', v: title })
@@ -293,6 +300,7 @@ export async function POST(req: NextRequest) {
         })
 
         await anthropicStream.finalMessage()
+        console.log('[generate] stream events seen:', eventLog.join(', '))
 
         // 스트림 이벤트에서 done이 안 왔을 경우 보장
         enqueue({ t: 'done', v: successIndices })
