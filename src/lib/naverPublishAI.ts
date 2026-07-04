@@ -211,7 +211,7 @@ export async function publishToNaverAI(
 
     while (Date.now() < deadline) {
       const response = await client.beta.messages.create({
-        model: 'claude-opus-4-6',
+        model: 'claude-3-7-sonnet-20250219',
         max_tokens: 4096,
         system: systemPrompt,
         tools: [
