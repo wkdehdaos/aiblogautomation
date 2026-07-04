@@ -125,6 +125,8 @@ export default function BlogFormPage() {
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [result, setResult] = useState<GenerateResult | null>(null)
+  const [streamingTitle, setStreamingTitle] = useState('')
+  const [streamingContent, setStreamingContent] = useState('')
   const [isPublishing, setIsPublishing] = useState(false)
   const [publishStatus, setPublishStatus] = useState<{ type: 'success' | 'error'; message: string; step?: string } | null>(null)
   const [selectedFont, setSelectedFont] = useState('나눔고딕')
