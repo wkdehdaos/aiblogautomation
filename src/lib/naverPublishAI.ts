@@ -11,7 +11,7 @@ export type PublishResult = PublishSuccess | PublishFailure
 const SESSION_PATH = path.resolve(process.cwd(), 'naver-session.json')
 const DISPLAY_WIDTH = 1280
 const DISPLAY_HEIGHT = 800
-const TIMEOUT_MS = 5 * 60 * 1000
+const TIMEOUT_MS = 2 * 60 * 1000
 
 const KEY_MAP: Record<string, string> = {
   Return: 'Enter',
