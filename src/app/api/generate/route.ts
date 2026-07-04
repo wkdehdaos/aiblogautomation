@@ -64,8 +64,8 @@ class ContentExtractor {
       this.buf += delta
       const idx = this.buf.indexOf(this.MARKER)
       if (idx === -1) {
-        // 경계 처리: MARKER 길이만큼 꼬리 유지
-        this.buf = this.buf.slice(-(this.MARKER.length - 1))
+        // 버퍼 전체 유지 (title JSON은 소량이므로 메모리 문제 없음)
+        // 이전의 slice(-10) 트리밍이 마커 마지막 '"'를 제거해 탐지 실패하는 버그 수정
         return {}
       }
 
