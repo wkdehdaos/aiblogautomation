@@ -300,8 +300,10 @@ export async function POST(req: NextRequest) {
           if (done) enqueue({ t: 'done', v: successIndices })
         })
 
-        await anthropicStream.finalMessage()
-        enqueue({ t: 'debug', v: `total deltas: ${deltaCount}` })
+        const finalMsg = await anthropicStream.finalMessage()
+        const toolBlock = finalMsg.content.find(b => b.type === 'tool_use')
+        const toolInput = toolBlock ? JSON.stringify((toolBlock as {input?: unknown}).input).slice(0, 200) : 'none'
+        enqueue({ t: 'debug', v: `stop=${finalMsg.stop_reason} deltas=${deltaCount} tool=${toolInput}` })
 
         // 스트림 이벤트에서 done이 안 왔을 경우 보장
         enqueue({ t: 'done', v: successIndices })
