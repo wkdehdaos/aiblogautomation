@@ -605,24 +605,68 @@ export async function publishToNaver(
       await publishBtn.click()
     })
 
-    // ── 10. 공개 설정 팝업 ───────────────────────────────────────────
+    // ── 10. 공개 설정 팝업 + 최종 발행 ─────────────────────────────────
     await step('공개설정팝업', async () => {
-      const popup = editorCtx.locator('text=공개 설정').first()
-      if (!await popup.isVisible({ timeout: 10000 }).catch(() => false)) {
+      // 팝업 텍스트를 여러 컨텍스트에서 탐색 (iframe 안팎 모두)
+      const popupTexts = ['공개 설정', '공개설정', '발행 설정', '전체공개']
+      let popupFound = false
+
+      const allCtxs: LocatorCtx[] = [editorCtx, editorPage]
+      for (const ctx of allCtxs) {
+        for (const txt of popupTexts) {
+          const el = ctx.locator(`text=${txt}`).first()
+          if (await el.isVisible({ timeout: 5000 }).catch(() => false)) {
+            popupFound = true
+            console.log(`  공개 설정 팝업 감지됨 (텍스트: "${txt}")`)
+            break
+          }
+        }
+        if (popupFound) break
+      }
+
+      // 팝업 없으면 confirm_btn이 바로 보이는지 확인 (이미 열린 상태일 수 있음)
+      if (!popupFound) {
+        for (const ctx of allCtxs) {
+          const confirmVisible = await ctx.locator('button[class*="confirm_btn"]').first()
+            .isVisible({ timeout: 2000 }).catch(() => false)
+          if (confirmVisible) {
+            popupFound = true
+            console.log('  confirm_btn 감지 — 팝업 이미 열린 상태')
+            break
+          }
+        }
+      }
+
+      if (!popupFound) {
+        await snap(editorPage, '공개팝업없음', stepIndex + 1)
         throw new Error('공개 설정 팝업이 나타나지 않았습니다.')
       }
-      const publicRadio = editorCtx.locator('label:has-text("전체공개"),input[type="radio"][value*="PUBLIC"]').first()
-      if (await publicRadio.isVisible({ timeout: 1500 }).catch(() => false)) {
-        await publicRadio.click().catch(() => {})
+
+      // 전체공개 선택
+      for (const ctx of allCtxs) {
+        const radio = ctx.locator('label:has-text("전체공개"),input[type="radio"][value*="PUBLIC"]').first()
+        if (await radio.isVisible({ timeout: 1500 }).catch(() => false)) {
+          await radio.click().catch(() => {})
+          console.log('  전체공개 선택')
+          break
+        }
       }
     })
 
     // ── 11. 최종 발행 확인 ───────────────────────────────────────────
     await step('최종발행확인', async () => {
-      const confirmBtn = editorCtx.locator('button[class*="confirm_btn"]').first()
-      if (await confirmBtn.isVisible({ timeout: 4000 }).catch(() => false)) {
-        await confirmBtn.click()
-      } else {
+      // confirm_btn 탐색 (editorCtx → editorPage)
+      let clicked = false
+      for (const ctx of [editorCtx, editorPage] as LocatorCtx[]) {
+        const btn = ctx.locator('button[class*="confirm_btn"]').first()
+        if (await btn.isVisible({ timeout: 4000 }).catch(() => false)) {
+          await btn.click()
+          clicked = true
+          break
+        }
+      }
+      if (!clicked) {
+        // 좌표 폴백
         await editorPage.mouse.click(1172, 554)
       }
       await editorPage.waitForLoadState('domcontentloaded', { timeout: 15000 }).catch(() => {})
