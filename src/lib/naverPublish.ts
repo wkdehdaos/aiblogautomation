@@ -487,23 +487,29 @@ export async function publishToNaver(
             continue
           }
 
-          // 삽입 버튼 처리 (레이아웃 팝업)
+          // 삽입 버튼 처리 — "개별사진" 팝업이 있을 때만 (툴바 버튼 방식)
+          // "확인"은 제외: SE3 이미지 캡션 확인 버튼과 혼동 방지
           for (const ctx of [editorCtx, editorPage] as LocatorCtx[]) {
             const singleBtn = ctx.locator('button:has-text("개별사진"),label:has-text("개별사진")').first()
-            if (await singleBtn.isVisible({ timeout: 1500 }).catch(() => false)) {
-              await singleBtn.click(); await editorPage.waitForTimeout(300); break
-            }
-          }
-          for (const ctx of [editorCtx, editorPage] as LocatorCtx[]) {
-            const insertBtn = ctx.locator('button:has-text("삽입"),button:has-text("확인"),button:has-text("적용")').first()
-            if (await insertBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
-              await insertBtn.click(); await editorPage.waitForTimeout(800); break
+            if (await singleBtn.isVisible({ timeout: 1000 }).catch(() => false)) {
+              await singleBtn.click()
+              await editorPage.waitForTimeout(300)
+              // 레이아웃 팝업의 삽입/적용 버튼
+              const insertBtn = ctx.locator('button:has-text("삽입"),button:has-text("적용")').first()
+              if (await insertBtn.isVisible({ timeout: 1500 }).catch(() => false)) {
+                await insertBtn.click()
+                await editorPage.waitForTimeout(600)
+              }
+              break
             }
           }
 
+          // 남은 패널 닫기 (이미지 설정 팝업 등)
           await editorPage.keyboard.press('Escape').catch(() => {})
-          await editorPage.waitForTimeout(200)
+          await editorPage.waitForTimeout(400)
+          // 에디터 본문 끝으로 이동
           await editorPage.keyboard.press('Control+End')
+          await editorPage.waitForTimeout(200)
           console.log(`[img] ${section.idx + 1}번 이미지 삽입 완료`)
         }
       }
