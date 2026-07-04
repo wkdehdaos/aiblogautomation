@@ -211,6 +211,7 @@ export async function publishToNaverAI(
       const toolResults: OpenAI.ChatCompletionToolMessageParam[] = []
 
       for (const call of toolCalls) {
+        if (call.type !== 'function') continue
         const args = JSON.parse(call.function.arguments) as Record<string, unknown>
         console.log(`[cua] action=${args.action} x=${args.x} y=${args.y} | ${args.reason}`)
 
