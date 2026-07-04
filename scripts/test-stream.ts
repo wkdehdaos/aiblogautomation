@@ -1,8 +1,15 @@
 import Anthropic from '@anthropic-ai/sdk'
-import * as dotenv from 'dotenv'
+import * as fs from 'fs'
 import * as path from 'path'
 
-dotenv.config({ path: path.resolve(process.cwd(), '.env.local') })
+// .env.local 수동 파싱
+const envPath = path.resolve(process.cwd(), '.env.local')
+if (fs.existsSync(envPath)) {
+  fs.readFileSync(envPath, 'utf-8').split('\n').forEach(line => {
+    const m = line.match(/^([^=]+)=(.*)$/)
+    if (m) process.env[m[1].trim()] = m[2].trim()
+  })
+}
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
