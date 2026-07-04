@@ -337,78 +337,100 @@ export async function publishToNaver(
           await editorPage.keyboard.press('Enter')
           await editorPage.waitForTimeout(200)
 
-          const imgSelectors = [
-            'button[data-module-name="photo"]',
-            'button[aria-label="사진"]',
-            'button[aria-label*="사진"]',
-            'button[title="사진"]',
+          // ── 이미지 버튼 탐색 (테스트 로그 기반: se-image-toolbar-button 확인됨)
+          const imgBtnSels = [
             '.se-image-toolbar-button',
-            '.se-photo-toolbar-button',
+            '.se-insert-menu-button-image',
             'button[class*="image"][class*="toolbar"]',
             'button[class*="photo"][class*="toolbar"]',
+            'button[aria-label*="사진"]',
           ]
-
           let imageBtn: Locator | null = null
-          for (const sel of imgSelectors) {
+          for (const sel of imgBtnSels) {
             for (const ctx of [editorCtx, editorPage] as LocatorCtx[]) {
               const btn = ctx.locator(sel).first()
-              if (await btn.isVisible({ timeout: 500 }).catch(() => false)) {
+              if (await btn.isVisible({ timeout: 1000 }).catch(() => false)) {
                 imageBtn = btn; break
               }
             }
             if (imageBtn) break
           }
-
           if (!imageBtn) {
             console.log(`[img] 이미지 버튼 없음 (${section.idx + 1}번)`)
             continue
           }
 
-          // 클릭 후 서브메뉴("내 PC") 처리 포함
-          let chooserPromise = editorPage.waitForEvent('filechooser', { timeout: 2500 }).catch(() => null)
+          // ── filechooser를 먼저 대기 등록 (15초) → 버튼 클릭 후 패널 탐색
+          const chooserPromise = editorPage.waitForEvent('filechooser', { timeout: 15_000 }).catch(() => null)
           await imageBtn.click()
-          await editorPage.waitForTimeout(500)
+          await editorPage.waitForTimeout(800)
 
-          // 서브메뉴 "내 PC / 내 컴퓨터" 버튼 확인
-          for (const ctx of [editorCtx, editorPage] as LocatorCtx[]) {
-            const pcBtn = ctx.locator(
-              'button:has-text("내 PC"),button:has-text("내 컴퓨터"),' +
-              'button:has-text("컴퓨터에서"),[class*="local_upload"]'
-            ).first()
-            if (await pcBtn.isVisible({ timeout: 800 }).catch(() => false)) {
-              chooserPromise = editorPage.waitForEvent('filechooser', { timeout: 5000 }).catch(() => null)
-              await pcBtn.click()
-              break
+          // 패널이 열렸으면 "내 PC" 계열 버튼 클릭
+          const pcSels = [
+            'button:has-text("내 PC")',
+            'button:has-text("내 컴퓨터")',
+            'button:has-text("PC에서")',
+            'button:has-text("컴퓨터에서")',
+            'button:has-text("직접 올리기")',
+            'button:has-text("파일 선택")',
+            '[class*="local_upload"]',
+            '[class*="from_pc"]',
+          ]
+          pcLoop: for (const frame of [editorFrame, ...editorPage.frames()]) {
+            for (const sel of pcSels) {
+              const btn = frame.locator(sel).first()
+              if (await btn.isVisible({ timeout: 600 }).catch(() => false)) {
+                await btn.click()
+                console.log(`[img] 서브패널 버튼 클릭: ${sel}`)
+                break pcLoop
+              }
             }
           }
 
+          // ── 방법 1: filechooser 이벤트
+          let uploaded = false
           const fileChooser = await chooserPromise
-          if (!fileChooser) {
-            console.log(`[img] 파일 선택창 없음 (${section.idx + 1}번)`)
+          if (fileChooser) {
+            await fileChooser.setFiles([imgPath])
+            await editorPage.waitForTimeout(2500)
+            uploaded = true
+            console.log(`[img] ${section.idx + 1}번 filechooser 업로드`)
+          }
+
+          // ── 방법 2: file input 직접 탐지 (filechooser 없을 때 fallback)
+          if (!uploaded) {
+            for (const frame of [editorFrame, ...editorPage.frames()]) {
+              const input = await frame.waitForSelector('input[type="file"]', { timeout: 2000 }).catch(() => null)
+              if (input) {
+                await input.setInputFiles([imgPath])
+                await editorPage.waitForTimeout(2500)
+                uploaded = true
+                console.log(`[img] ${section.idx + 1}번 file input 직접 업로드`)
+                break
+              }
+            }
+          }
+
+          if (!uploaded) {
+            console.log(`[img] 파일 선택창 없음 (${section.idx + 1}번) — 건너뜀`)
             continue
           }
 
-          await fileChooser.setFiles([imgPath])
-          await editorPage.waitForTimeout(2000)
-
-          // 레이아웃 팝업 처리 (개별사진 선택 → 삽입)
-          const popup = editorCtx.locator(
-            '.se-photo-upload-layer,.se-popup-photo,[class*="photo_layer"],[class*="photoUpload"]'
-          ).first()
-          if (await popup.isVisible({ timeout: 1500 }).catch(() => false)) {
-            const singleBtn = editorCtx.locator(
-              'button:has-text("개별사진"),label:has-text("개별사진"),[class*="single"]'
-            ).first()
-            if (await singleBtn.isVisible({ timeout: 1000 }).catch(() => false)) {
+          // 삽입 버튼 처리 (레이아웃 팝업)
+          for (const ctx of [editorCtx, editorPage] as LocatorCtx[]) {
+            const singleBtn = ctx.locator('button:has-text("개별사진"),label:has-text("개별사진")').first()
+            if (await singleBtn.isVisible({ timeout: 1500 }).catch(() => false)) {
               await singleBtn.click()
-              await editorPage.waitForTimeout(200)
+              await editorPage.waitForTimeout(300)
+              break
             }
-            const insertBtn = editorCtx.locator(
-              'button:has-text("삽입"),button:has-text("확인"),button:has-text("적용")'
-            ).first()
-            if (await insertBtn.isVisible({ timeout: 1000 }).catch(() => false)) {
+          }
+          for (const ctx of [editorCtx, editorPage] as LocatorCtx[]) {
+            const insertBtn = ctx.locator('button:has-text("삽입"),button:has-text("확인"),button:has-text("적용")').first()
+            if (await insertBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
               await insertBtn.click()
               await editorPage.waitForTimeout(800)
+              break
             }
           }
 
