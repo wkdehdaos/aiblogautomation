@@ -566,97 +566,70 @@ export async function publishToNaver(
       return { success: false, error: '본문이 비어 있어 발행을 중단했습니다.', lastStep: '발행전검증' }
     }
 
-    // ── 9. 발행 버튼 클릭 ────────────────────────────────────────────
+    // ── 9. 발행 버튼 클릭 + 발행 패널 열림 확인 ────────────────────────
     await step('발행버튼클릭', async () => {
-      // 이미지 패널 포함 모든 팝업 닫기 (Escape × 2)
+      // 이미지 패널 포함 모든 팝업 닫기
       await editorPage.keyboard.press('Escape').catch(() => {})
-      await editorPage.waitForTimeout(300)
+      await editorPage.waitForTimeout(500)
       await editorPage.keyboard.press('Escape').catch(() => {})
-      await editorPage.waitForTimeout(400)
+      await editorPage.waitForTimeout(800) // SE3 상태 안정화 대기
 
-      // 발행 버튼 선택자 목록 (정확한 클래스명 우선, 넓은 범위 나중)
+      // 발행 버튼 탐색
       const publishSelectors = [
+        'button[class*="publish_btn"]:not([class*="reserve"])',
         'button[class*="publish_btn"]',
-        'button.publish_btn',
-        'button[aria-label="발행"]',
       ]
-
       let publishBtn: Locator | null = null
+      for (const ctx of [editorCtx, editorPage] as LocatorCtx[]) {
+        for (const sel of publishSelectors) {
+          const btn = ctx.locator(sel).first()
+          if (await btn.isVisible({ timeout: 3000 }).catch(() => false)) {
+            publishBtn = btn; break
+          }
+        }
+        if (publishBtn) break
+      }
+      if (!publishBtn) throw new Error('발행 버튼을 찾지 못했습니다.')
 
-      // 최대 10초간 재시도
-      const deadline = Date.now() + 10_000
-      while (!publishBtn && Date.now() < deadline) {
-        for (const ctx of [editorCtx, editorPage] as LocatorCtx[]) {
-          for (const sel of publishSelectors) {
-            const btn = ctx.locator(sel).first()
-            if (await btn.isVisible({ timeout: 800 }).catch(() => false)) {
-              publishBtn = btn
-              break
+      // 발행 패널이 열릴 때까지 클릭 재시도 (최대 3회)
+      const panelSel = 'button[class*="confirm_btn"],button[class*="publish_fold_btn"]'
+      let panelOpened = false
+
+      for (let attempt = 0; attempt < 3 && !panelOpened; attempt++) {
+        if (attempt > 0) {
+          console.log(`  [발행] 패널 미열림 — 재시도 ${attempt + 1}`)
+          await editorPage.waitForTimeout(1000)
+        }
+        await publishBtn.click({ force: attempt > 0 })
+        await editorPage.waitForTimeout(400)
+
+        // 패널 열림 확인 (최대 5초 폴링)
+        const checkDeadline = Date.now() + 5000
+        while (Date.now() < checkDeadline && !panelOpened) {
+          for (const ctx of [editorCtx, editorPage] as LocatorCtx[]) {
+            if (await ctx.locator(panelSel).first().isVisible({ timeout: 300 }).catch(() => false)) {
+              panelOpened = true; break
             }
           }
-          if (publishBtn) break
+          if (!panelOpened) await editorPage.waitForTimeout(300)
         }
-        // 프레임 직접 순회
-        if (!publishBtn) {
-          for (const frame of editorPage.frames()) {
-            for (const sel of publishSelectors) {
-              const btn = frame.locator(sel).first()
-              if (await btn.isVisible({ timeout: 500 }).catch(() => false)) {
-                publishBtn = btn
-                break
-              }
-            }
-            if (publishBtn) break
-          }
-        }
-        if (!publishBtn) await editorPage.waitForTimeout(500)
       }
 
-      if (!publishBtn) throw new Error('발행 버튼을 찾지 못했습니다.')
-      await publishBtn.click()
+      if (!panelOpened) {
+        await snap(editorPage, '발행패널미열림', stepIndex + 1)
+        throw new Error('발행 버튼 클릭 후 발행 패널이 열리지 않았습니다.')
+      }
+      console.log('  발행 패널 열림 확인')
     })
 
-    // ── 10. 공개 설정 팝업 + 최종 발행 ─────────────────────────────────
+    // ── 10. 공개 설정 + 최종 발행 확인 ──────────────────────────────────
     await step('공개설정팝업', async () => {
-      // 팝업 텍스트를 여러 컨텍스트에서 탐색 (iframe 안팎 모두)
-      const popupTexts = ['공개 설정', '공개설정', '발행 설정', '전체공개']
-      let popupFound = false
-
-      const allCtxs: LocatorCtx[] = [editorCtx, editorPage]
-      for (const ctx of allCtxs) {
-        for (const txt of popupTexts) {
-          const el = ctx.locator(`text=${txt}`).first()
-          if (await el.isVisible({ timeout: 5000 }).catch(() => false)) {
-            popupFound = true
-            console.log(`  공개 설정 팝업 감지됨 (텍스트: "${txt}")`)
-            break
-          }
-        }
-        if (popupFound) break
-      }
-
-      // 팝업 없으면 confirm_btn이 바로 보이는지 확인 (이미 열린 상태일 수 있음)
-      if (!popupFound) {
-        for (const ctx of allCtxs) {
-          const confirmVisible = await ctx.locator('button[class*="confirm_btn"]').first()
-            .isVisible({ timeout: 2000 }).catch(() => false)
-          if (confirmVisible) {
-            popupFound = true
-            console.log('  confirm_btn 감지 — 팝업 이미 열린 상태')
-            break
-          }
-        }
-      }
-
-      if (!popupFound) {
-        await snap(editorPage, '공개팝업없음', stepIndex + 1)
-        throw new Error('공개 설정 팝업이 나타나지 않았습니다.')
-      }
-
-      // 전체공개 선택
-      for (const ctx of allCtxs) {
-        const radio = ctx.locator('label:has-text("전체공개"),input[type="radio"][value*="PUBLIC"]').first()
-        if (await radio.isVisible({ timeout: 1500 }).catch(() => false)) {
+      // 패널이 이미 열려있으므로 전체공개 선택만 시도
+      for (const ctx of [editorCtx, editorPage] as LocatorCtx[]) {
+        const radio = ctx.locator(
+          'label:has-text("전체공개"),input[type="radio"][value*="PUBLIC"]'
+        ).first()
+        if (await radio.isVisible({ timeout: 2000 }).catch(() => false)) {
           await radio.click().catch(() => {})
           console.log('  전체공개 선택')
           break
@@ -666,7 +639,6 @@ export async function publishToNaver(
 
     // ── 11. 최종 발행 확인 ───────────────────────────────────────────
     await step('최종발행확인', async () => {
-      // confirm_btn 탐색 (editorCtx → editorPage)
       let clicked = false
       for (const ctx of [editorCtx, editorPage] as LocatorCtx[]) {
         const btn = ctx.locator('button[class*="confirm_btn"]').first()
@@ -676,10 +648,7 @@ export async function publishToNaver(
           break
         }
       }
-      if (!clicked) {
-        // 좌표 폴백
-        await editorPage.mouse.click(1172, 554)
-      }
+      if (!clicked) await editorPage.mouse.click(1172, 554)
       await editorPage.waitForLoadState('domcontentloaded', { timeout: 15000 }).catch(() => {})
     })
 
