@@ -276,19 +276,20 @@ export async function POST(req: NextRequest) {
           messages: [{ role: 'user', content: userContent }],
         })
 
-        const eventLog: string[] = []
+        let deltaCount = 0
         anthropicStream.on('streamEvent', (event) => {
-          // 디버그: 이벤트 타입 수집
-          const key = event.type + (('delta' in event && event.delta) ? ':' + (event.delta as {type?:string}).type : '')
-          if (!eventLog.includes(key)) eventLog.push(key)
+          if (event.type !== 'content_block_delta') return
+          const delta = event.delta as {type?: string; partial_json?: string}
+          if (delta.type !== 'input_json_delta') return
 
-          if (
-            event.type !== 'content_block_delta' ||
-            !('delta' in event) ||
-            (event.delta as {type?:string}).type !== 'input_json_delta'
-          ) return
+          deltaCount++
+          const partial = delta.partial_json ?? ''
 
-          const partial = (event.delta as {partial_json?: string}).partial_json ?? ''
+          // 디버그: 첫 3개 delta를 raw로 전송
+          if (deltaCount <= 3) {
+            enqueue({ t: 'debug', v: `delta#${deltaCount}: ${JSON.stringify(partial).slice(0, 60)}` })
+          }
+
           const { title, content, done } = extractor.process(partial)
 
           if (title && !titleFlushed) {
@@ -300,7 +301,7 @@ export async function POST(req: NextRequest) {
         })
 
         await anthropicStream.finalMessage()
-        console.log('[generate] stream events seen:', eventLog.join(', '))
+        enqueue({ t: 'debug', v: `total deltas: ${deltaCount}` })
 
         // 스트림 이벤트에서 done이 안 왔을 경우 보장
         enqueue({ t: 'done', v: successIndices })
