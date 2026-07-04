@@ -335,84 +335,117 @@ export async function publishToNaver(
 
           await editorPage.keyboard.press('End')
           await editorPage.keyboard.press('Enter')
-          await editorPage.waitForTimeout(200)
+          await editorPage.waitForTimeout(300)
 
-          // ── 이미지 버튼 탐색 (테스트 로그 기반: se-image-toolbar-button 확인됨)
-          const imgBtnSels = [
-            '.se-image-toolbar-button',
-            '.se-insert-menu-button-image',
-            'button[class*="image"][class*="toolbar"]',
-            'button[class*="photo"][class*="toolbar"]',
-            'button[aria-label*="사진"]',
-          ]
-          let imageBtn: Locator | null = null
-          for (const sel of imgBtnSels) {
-            for (const ctx of [editorCtx, editorPage] as LocatorCtx[]) {
-              const btn = ctx.locator(sel).first()
-              if (await btn.isVisible({ timeout: 1000 }).catch(() => false)) {
-                imageBtn = btn; break
-              }
-            }
-            if (imageBtn) break
-          }
-          if (!imageBtn) {
-            console.log(`[img] 이미지 버튼 없음 (${section.idx + 1}번)`)
-            continue
-          }
-
-          // ── filechooser를 먼저 대기 등록 (15초) → 버튼 클릭 후 패널 탐색
-          const chooserPromise = editorPage.waitForEvent('filechooser', { timeout: 15_000 }).catch(() => null)
-          await imageBtn.click()
-          await editorPage.waitForTimeout(800)
-
-          // 패널이 열렸으면 "내 PC" 계열 버튼 클릭
-          const pcSels = [
-            'button:has-text("내 PC")',
-            'button:has-text("내 컴퓨터")',
-            'button:has-text("PC에서")',
-            'button:has-text("컴퓨터에서")',
-            'button:has-text("직접 올리기")',
-            'button:has-text("파일 선택")',
-            '[class*="local_upload"]',
-            '[class*="from_pc"]',
-          ]
-          pcLoop: for (const frame of [editorFrame, ...editorPage.frames()]) {
-            for (const sel of pcSels) {
-              const btn = frame.locator(sel).first()
-              if (await btn.isVisible({ timeout: 600 }).catch(() => false)) {
-                await btn.click()
-                console.log(`[img] 서브패널 버튼 클릭: ${sel}`)
-                break pcLoop
-              }
-            }
-          }
-
-          // ── 방법 1: filechooser 이벤트
+          // ── 방법 A: 이미지 버튼 클릭 전 숨겨진 file input이 있으면 먼저 시도
           let uploaded = false
-          const fileChooser = await chooserPromise
-          if (fileChooser) {
-            await fileChooser.setFiles([imgPath])
-            await editorPage.waitForTimeout(2500)
-            uploaded = true
-            console.log(`[img] ${section.idx + 1}번 filechooser 업로드`)
+          for (const frame of [editorFrame, ...editorPage.frames()]) {
+            const inputs = await frame.$$('input[type="file"]')
+            if (inputs.length > 0) {
+              try {
+                await inputs[0].setInputFiles([imgPath])
+                // SE3가 파일을 인식했는지 확인 (미리보기 썸네일 등장)
+                const preview = await frame.waitForSelector(
+                  'img[src*="blob:"],img[src*="data:"],img[class*="thumb"],[class*="preview"]',
+                  { timeout: 2000 }
+                ).catch(() => null)
+                if (preview) {
+                  await editorPage.waitForTimeout(1500)
+                  uploaded = true
+                  console.log(`[img] ${section.idx + 1}번 hidden file input 업로드`)
+                  break
+                }
+              } catch { /* 실패하면 다음 방법 */ }
+            }
           }
 
-          // ── 방법 2: file input 직접 탐지 (filechooser 없을 때 fallback)
+          // ── 방법 B: 이미지 버튼 클릭 → filechooser 이벤트 캡처
           if (!uploaded) {
-            for (const frame of [editorFrame, ...editorPage.frames()]) {
-              const input = await frame.waitForSelector('input[type="file"]', { timeout: 2000 }).catch(() => null)
-              if (input) {
-                await input.setInputFiles([imgPath])
+            // 이미지 버튼 탐색 (테스트 로그 기반: se-image-toolbar-button 확인됨)
+            const imgBtnSels = [
+              '.se-image-toolbar-button',
+              '.se-insert-menu-button-image',
+              'button[class*="image"][class*="toolbar"]',
+              'button[class*="photo"][class*="toolbar"]',
+            ]
+            let imageBtn: Locator | null = null
+            for (const sel of imgBtnSels) {
+              for (const ctx of [editorCtx, editorPage] as LocatorCtx[]) {
+                const btn = ctx.locator(sel).first()
+                if (await btn.isVisible({ timeout: 800 }).catch(() => false)) {
+                  imageBtn = btn; break
+                }
+              }
+              if (imageBtn) break
+            }
+
+            if (imageBtn) {
+              // filechooser 대기 먼저 등록 (10초)
+              const chooserPromise = editorPage.waitForEvent('filechooser', { timeout: 10_000 }).catch(() => null)
+              await imageBtn.click()
+              await editorPage.waitForTimeout(700)
+
+              // 디버그: 패널 내 버튼 목록 로그
+              const panelBtns = await editorFrame.$$eval('button', bs =>
+                bs.filter(b => (b as HTMLElement).offsetParent !== null)
+                  .map(b => ({ text: b.textContent?.trim().slice(0, 20), cls: b.className.slice(0, 40) }))
+              ).catch(() => [] as {text?: string; cls: string}[])
+              if (panelBtns.length > 0) {
+                console.log('[img] 패널 내 버튼:', JSON.stringify(panelBtns.slice(0, 8)))
+              }
+
+              // "내 PC" 계열 버튼 클릭 (다양한 텍스트 시도)
+              const pcSels = [
+                'button:has-text("내 PC에서")',
+                'button:has-text("내 PC")',
+                'button:has-text("내 컴퓨터")',
+                'button:has-text("PC에서")',
+                'button:has-text("직접")',
+                'button:has-text("가져오기")',
+                '[class*="local"]',
+                '[class*="from_pc"]',
+                '[class*="upload_btn"]',
+              ]
+              pcLoop: for (const frame of [editorFrame, ...editorPage.frames()]) {
+                for (const sel of pcSels) {
+                  const btn = frame.locator(sel).first()
+                  if (await btn.isVisible({ timeout: 500 }).catch(() => false)) {
+                    await btn.click()
+                    console.log(`[img] 서브패널 버튼 클릭: ${sel}`)
+                    break pcLoop
+                  }
+                }
+              }
+
+              const fileChooser = await chooserPromise
+              if (fileChooser) {
+                await fileChooser.setFiles([imgPath])
                 await editorPage.waitForTimeout(2500)
                 uploaded = true
-                console.log(`[img] ${section.idx + 1}번 file input 직접 업로드`)
-                break
+                console.log(`[img] ${section.idx + 1}번 filechooser 업로드`)
+              }
+
+              // filechooser 없으면 패널 내 file input 재탐색
+              if (!uploaded) {
+                for (const frame of [editorFrame, ...editorPage.frames()]) {
+                  const input = await frame.waitForSelector('input[type="file"]', { timeout: 2000 }).catch(() => null)
+                  if (input) {
+                    await input.setInputFiles([imgPath])
+                    await editorPage.waitForTimeout(2000)
+                    uploaded = true
+                    console.log(`[img] ${section.idx + 1}번 패널 file input 업로드`)
+                    break
+                  }
+                }
               }
             }
           }
 
+          // ── 업로드 실패 시 패널 닫고 계속 진행
           if (!uploaded) {
-            console.log(`[img] 파일 선택창 없음 (${section.idx + 1}번) — 건너뜀`)
+            console.log(`[img] ${section.idx + 1}번 업로드 실패 — 패널 닫고 건너뜀`)
+            await editorPage.keyboard.press('Escape')
+            await editorPage.waitForTimeout(400)
             continue
           }
 
@@ -433,6 +466,10 @@ export async function publishToNaver(
               break
             }
           }
+
+          // 삽입 후 패널이 남아있으면 닫기
+          await editorPage.keyboard.press('Escape').catch(() => {})
+          await editorPage.waitForTimeout(200)
 
           await editorPage.keyboard.press('Control+End')
           console.log(`[img] ${section.idx + 1}번 이미지 삽입 완료`)
