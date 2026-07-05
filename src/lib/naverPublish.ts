@@ -122,17 +122,23 @@ export async function publishToNaver(
   content: string,
   imagePaths: string[],
   font = '나눔고딕',
-  location = ''
+  location = '',
+  storageStateData?: Record<string, unknown>
 ): Promise<PublishResult> {
   const blogId = process.env.NAVER_BLOG_ID
   let lastStep = '초기화'
 
   if (!blogId) return { success: false, error: 'NAVER_BLOG_ID 환경변수 미설정', lastStep }
-  if (!fs.existsSync(SESSION_PATH)) return { success: false, error: '세션 없음. npm run naver-login 먼저', lastStep }
 
-  const browser = await chromium.launch({ headless: false })
+  const hasSession = storageStateData || fs.existsSync(SESSION_PATH)
+  if (!hasSession) return { success: false, error: '네이버 세션 없음. 네이버 계정을 연결해주세요.', lastStep }
+
+  const isHeadless = process.env.NODE_ENV === 'production'
+  const browser = await chromium.launch({ headless: isHeadless })
   const context = await browser.newContext({
-    storageState: SESSION_PATH,
+    storageState: storageStateData
+      ? (storageStateData as Parameters<typeof browser.newContext>[0]['storageState'])
+      : SESSION_PATH,
     permissions: ['clipboard-read', 'clipboard-write'],
   })
   const page = await context.newPage()
