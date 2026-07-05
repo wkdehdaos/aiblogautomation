@@ -28,7 +28,6 @@ RUN mkdir -p /data
 
 # ── 런타임 설정 ──────────────────────────────────────────────────
 ENV NODE_ENV=production
-EXPOSE 3000
 
 # 컨테이너 시작 시 마이그레이션 적용 후 서버 실행
-CMD ["sh", "-c", "npx prisma migrate deploy && ./node_modules/.bin/next start -p ${PORT:-3000}"]
+CMD sh -c "npx prisma migrate deploy && npx next start -p ${PORT}"
