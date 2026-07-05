@@ -9,8 +9,11 @@ export async function GET() {
 
   const user = await prisma.user.findUnique({
     where: { id: session.userId },
-    select: { naverSession: true },
+    select: { naverSession: true, sessionUploadedAt: true },
   })
 
-  return Response.json({ connected: !!user?.naverSession })
+  return Response.json({
+    connected: !!user?.naverSession,
+    sessionUploadedAt: user?.sessionUploadedAt ?? null,
+  })
 }
