@@ -8,6 +8,9 @@ naver-session.json
 /tmp/naver-upload/
 
 /src/generated/prisma
+dev.db
+dev.db-shm
+dev.db-wal
 prisma/dev.db
 prisma/dev.db-shm
 prisma/dev.db-wal
