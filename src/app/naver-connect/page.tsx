@@ -3,8 +3,16 @@
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 
+function formatDaysAgo(dateStr: string): string {
+  const diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 86400000)
+  if (diff === 0) return '오늘'
+  if (diff === 1) return '1일 전'
+  return `${diff}일 전`
+}
+
 export default function NaverConnectPage() {
   const [connected, setConnected] = useState<boolean | null>(null)
+  const [uploadedAt, setUploadedAt] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [fileName, setFileName] = useState<string | null>(null)
@@ -13,9 +21,15 @@ export default function NaverConnectPage() {
   useEffect(() => {
     fetch('/api/naver/status')
       .then((r) => r.json())
-      .then((d: { connected?: boolean }) => setConnected(!!d.connected))
+      .then((d: { connected?: boolean; sessionUploadedAt?: string | null }) => {
+        setConnected(!!d.connected)
+        setUploadedAt(d.sessionUploadedAt ?? null)
+      })
       .catch(() => setConnected(false))
   }, [])
+
+  const daysAgo = uploadedAt ? Math.floor((Date.now() - new Date(uploadedAt).getTime()) / 86400000) : null
+  const isStale = daysAgo !== null && daysAgo >= 14
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -44,6 +58,7 @@ export default function NaverConnectPage() {
 
       if (data.ok) {
         setConnected(true)
+        setUploadedAt(new Date().toISOString())
         setMessage({ type: 'success', text: '세션이 업로드됐습니다. 이제 블로그에 발행할 수 있어요.' })
       } else {
         setMessage({ type: 'error', text: data.error ?? '업로드에 실패했습니다.' })
@@ -63,6 +78,7 @@ export default function NaverConnectPage() {
     try {
       await fetch('/api/naver/disconnect', { method: 'POST' })
       setConnected(false)
+      setUploadedAt(null)
       setFileName(null)
       setMessage({ type: 'success', text: '연결이 해제됐습니다.' })
     } catch {
@@ -90,23 +106,38 @@ export default function NaverConnectPage() {
 
         {/* 연결 상태 */}
         <div className="mb-6 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-100">
-          <p className="mb-1 text-xs font-medium uppercase tracking-wide text-gray-400">연결 상태</p>
+          <p className="mb-2 text-xs font-medium uppercase tracking-wide text-gray-400">현재 연결 상태</p>
           {connected === null ? (
             <p className="text-sm text-gray-400">확인 중...</p>
           ) : connected ? (
-            <div className="flex items-center justify-between">
-              <span className="flex items-center gap-2 text-sm font-semibold text-emerald-600">
-                <span className="flex h-2 w-2 rounded-full bg-emerald-500" />
-                세션 연결됨
-              </span>
-              <button
-                type="button"
-                onClick={handleDisconnect}
-                disabled={loading}
-                className="text-xs font-medium text-gray-400 transition hover:text-red-500 disabled:opacity-50"
-              >
-                연결 해제
-              </button>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                {isStale ? (
+                  <span className="flex items-center gap-2 text-sm font-semibold text-amber-600">
+                    <span className="flex h-2 w-2 rounded-full bg-amber-400" />
+                    세션 갱신 권장
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-2 text-sm font-semibold text-emerald-600">
+                    <span className="flex h-2 w-2 rounded-full bg-emerald-500" />
+                    세션 연결됨
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={handleDisconnect}
+                  disabled={loading}
+                  className="text-xs font-medium text-gray-400 transition hover:text-red-500 disabled:opacity-50"
+                >
+                  연결 해제
+                </button>
+              </div>
+              {uploadedAt && (
+                <p className="text-xs text-gray-400">
+                  마지막 업로드: {formatDaysAgo(uploadedAt)}
+                  {isStale && ' — 14일 이상 지났습니다. 갱신을 권장해요.'}
+                </p>
+              )}
             </div>
           ) : (
             <span className="flex items-center gap-2 text-sm font-semibold text-amber-600">
@@ -129,24 +160,44 @@ export default function NaverConnectPage() {
 
         {/* 업로드 섹션 */}
         <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-gray-100 space-y-5">
-          <h2 className="text-base font-semibold text-gray-800">세션 파일 업로드</h2>
+          <h2 className="text-base font-semibold text-gray-800">
+            {connected ? '세션 갱신하기' : '세션 파일 업로드'}
+          </h2>
 
-          {/* 사용 방법 안내 */}
-          <div className="rounded-xl bg-slate-50 p-4 ring-1 ring-slate-200 space-y-2">
-            <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">사용 방법</p>
-            <ol className="space-y-1.5 text-sm text-slate-600 list-decimal list-inside">
-              <li>로컬 컴퓨터에서 아래 명령어 실행</li>
-              <li>
-                <code className="rounded bg-slate-200 px-1.5 py-0.5 text-xs font-mono text-slate-800">
-                  npm run naver-login
-                </code>
-              </li>
-              <li>브라우저에서 네이버 로그인 완료</li>
-              <li>생성된 <code className="rounded bg-slate-200 px-1.5 py-0.5 text-xs font-mono text-slate-800">naver-session.json</code> 업로드</li>
+          {/* 안내 */}
+          <div className="rounded-xl bg-slate-50 p-4 ring-1 ring-slate-200">
+            <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
+              네이버 세션 연결 방법
+            </p>
+            <ol className="space-y-2">
+              {[
+                '본인 컴퓨터에서 VS Code 터미널 열기',
+                { code: 'npm run naver-login', label: ' 실행' },
+                '뜨는 브라우저에서 네이버 로그인',
+                <>생성된 <code className="rounded bg-slate-200 px-1.5 py-0.5 text-xs font-mono text-slate-800">naver-session.json</code> 파일을 아래에 업로드</>,
+              ].map((step, i) => (
+                <li key={i} className="flex gap-2.5 text-sm text-slate-600">
+                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-xs font-bold text-indigo-600">
+                    {i + 1}
+                  </span>
+                  {typeof step === 'string' ? (
+                    step
+                  ) : typeof step === 'object' && 'code' in step ? (
+                    <span>
+                      <code className="rounded bg-slate-200 px-1.5 py-0.5 text-xs font-mono text-slate-800">
+                        {step.code}
+                      </code>
+                      {step.label}
+                    </span>
+                  ) : (
+                    step
+                  )}
+                </li>
+              ))}
             </ol>
           </div>
 
-          {/* 파일 업로드 버튼 */}
+          {/* 파일 업로드 */}
           <div>
             <input
               ref={fileInputRef}
@@ -179,12 +230,6 @@ export default function NaverConnectPage() {
               )}
             </button>
           </div>
-
-          {connected && (
-            <p className="text-center text-xs text-gray-400">
-              세션이 만료되면 위 과정을 반복해 다시 업로드해주세요.
-            </p>
-          )}
         </div>
       </div>
     </div>
