@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
       return Response.json({ error: '유효하지 않은 세션 데이터입니다.' }, { status: 400 })
     }
 
-    // Playwright storageState 형식 검증 (cookies 또는 origins 중 하나 이상 존재)
+    // Playwright storageState 형식 검증
     const data = sessionData as Record<string, unknown>
     if (!Array.isArray(data.cookies) && !Array.isArray(data.origins)) {
       return Response.json(
@@ -28,7 +28,10 @@ export async function POST(req: NextRequest) {
     const encrypted = encrypt(JSON.stringify(sessionData))
     await prisma.user.update({
       where: { id: session.userId },
-      data: { naverSession: encrypted },
+      data: {
+        naverSession: encrypted,
+        sessionUploadedAt: new Date(),
+      },
     })
 
     return Response.json({ ok: true })
