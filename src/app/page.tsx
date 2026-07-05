@@ -145,6 +145,7 @@ function applyMosaicToImage(
 export default function BlogFormPage() {
   const router = useRouter()
   const [currentUser, setCurrentUser] = useState<{ email: string; name: string | null } | null>(null)
+  const [naverConnected, setNaverConnected] = useState<boolean | null>(null)
   const [form, setForm] = useState<BlogFormData>(INITIAL_FORM)
   const [keywordInput, setKeywordInput] = useState('')
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
