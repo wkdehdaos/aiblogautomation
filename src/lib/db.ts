@@ -6,7 +6,7 @@ import path from 'path'
 function createPrismaClient() {
   const dbUrl = process.env.DATABASE_URL ?? `file:${path.join(process.cwd(), 'prisma', 'dev.db')}`
   const libsql = createClient({ url: dbUrl })
-  const adapter = new PrismaLibSQL(libsql)
+  const adapter = new PrismaLibSql(libsql)
   return new PrismaClient({ adapter })
 }
 
