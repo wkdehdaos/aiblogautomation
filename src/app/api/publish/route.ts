@@ -1,6 +1,8 @@
 import { NextRequest } from 'next/server'
 import { publishToNaver } from '@/lib/naverPublish'
 import { getSession } from '@/lib/auth'
+import { prisma } from '@/lib/db'
+import { decrypt } from '@/lib/encrypt'
 import path from 'path'
 import fs from 'fs'
 import os from 'os'
@@ -14,7 +16,7 @@ export async function POST(req: NextRequest) {
   const { title, content, images, font, location } = (await req.json()) as {
     title: string
     content: string
-    images: string[] // base64
+    images: string[]
     font?: string
     location?: string
   }
@@ -23,7 +25,29 @@ export async function POST(req: NextRequest) {
     return Response.json({ success: false, error: '제목과 본문이 필요합니다.', lastStep: '요청 검증' }, { status: 400 })
   }
 
-  // 이미지 base64 → 임시 파일로 저장
+  // DB에서 현재 사용자의 네이버 세션 로드
+  const user = await prisma.user.findUnique({
+    where: { id: session.userId },
+    select: { naverSession: true },
+  })
+
+  let storageStateData: Record<string, unknown> | undefined
+  if (user?.naverSession) {
+    const decrypted = decrypt(user.naverSession)
+    if (decrypted) {
+      try {
+        storageStateData = JSON.parse(decrypted) as Record<string, unknown>
+      } catch {
+        return Response.json({ success: false, error: '세션 데이터 손상. 네이버 계정을 다시 연결해주세요.', lastStep: '세션 로드' }, { status: 400 })
+      }
+    }
+  }
+
+  if (!storageStateData) {
+    return Response.json({ success: false, error: '네이버 계정이 연결되지 않았습니다. 네이버 계정을 먼저 연결해주세요.', lastStep: '세션 로드' }, { status: 400 })
+  }
+
+  // 이미지 base64 → 임시 파일
   const uploadDir = path.join(os.tmpdir(), 'naver-upload')
   fs.mkdirSync(uploadDir, { recursive: true })
 
@@ -35,7 +59,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const result = await publishToNaver(title, content, imagePaths, font, location)
+    const result = await publishToNaver(title, content, imagePaths, font, location, storageStateData)
     return Response.json(result)
   } finally {
     for (const p of imagePaths) {
