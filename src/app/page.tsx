@@ -151,6 +151,8 @@ export default function BlogFormPage() {
   const [result, setResult] = useState<GenerateResult | null>(null)
   const [isPublishing, setIsPublishing] = useState(false)
   const [publishStatus, setPublishStatus] = useState<{ type: 'success' | 'error'; message: string; step?: string } | null>(null)
+  const [isSaving, setIsSaving] = useState(false)
+  const [saveStatus, setSaveStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
   const [selectedFont, setSelectedFont] = useState('나눔고딕')
   const [mosaicEnabled, setMosaicEnabled] = useState<Set<string>>(new Set())
   const [mosaicUrls, setMosaicUrls] = useState<Record<string, string>>({})
