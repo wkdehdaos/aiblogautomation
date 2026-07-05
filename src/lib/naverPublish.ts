@@ -337,10 +337,6 @@ export async function publishToNaver(
           await editorPage.keyboard.press('Enter')
           await editorPage.waitForTimeout(300)
 
-          const imgBuffer = fs.readFileSync(imgPath)
-          const imgBase64 = imgBuffer.toString('base64')
-          const imgMime = imgPath.endsWith('.png') ? 'image/png' : 'image/jpeg'
-
           // 에디터에 포커스
           const editorEl = editorFrame.locator('[contenteditable="true"]:not([aria-hidden])').first()
           await editorEl.click({ timeout: 3000 }).catch(() => {})
@@ -348,161 +344,153 @@ export async function publishToNaver(
 
           let uploaded = false
 
-          // ── 방법 1: 클립보드 → Ctrl+V
-          //   clipboard API는 image/png만 안정적으로 지원 → JPEG는 Canvas로 PNG 변환
-          const clipOk = await editorPage.evaluate(
-            async ({ b64, mime }: { b64: string; mime: string }) => {
-              try {
-                const arr = Uint8Array.from(atob(b64), c => c.charCodeAt(0))
-                const srcBlob = new Blob([arr], { type: mime })
-
-                let pngBlob: Blob = srcBlob
-                if (mime !== 'image/png') {
-                  // JPEG → PNG 변환 (canvas 사용)
-                  const img = new Image()
-                  const url = URL.createObjectURL(srcBlob)
-                  await new Promise<void>((res, rej) => { img.onload = () => res(); img.onerror = rej; img.src = url })
-                  const canvas = document.createElement('canvas')
-                  canvas.width = img.naturalWidth || img.width
-                  canvas.height = img.naturalHeight || img.height
-                  const ctx = canvas.getContext('2d')!
-                  ctx.drawImage(img, 0, 0)
-                  URL.revokeObjectURL(url)
-                  pngBlob = await new Promise<Blob>(res => canvas.toBlob(b => res(b!), 'image/png'))
-                }
-
-                await navigator.clipboard.write([new ClipboardItem({ 'image/png': pngBlob })])
-                return true
-              } catch { return false }
-            },
-            { b64: imgBase64, mime: imgMime }
-          ).catch(() => false)
-
-          if (clipOk) {
-            await editorPage.keyboard.press('Control+V')
-            await editorPage.waitForTimeout(3000)
-
-            // SE3 이미지 설정 패널 감지 + JS로 "확인" 클릭 (CSS hidden이어도 동작)
-            let confirmClicked = false
-            for (const frame of [editorFrame, ...editorPage.frames()]) {
-              const result = await frame.evaluate(() => {
-                // 이미지 컴포넌트 또는 설정 패널 존재 여부
-                const hasImg = document.querySelectorAll(
-                  '.se-image-container,.se-module-image,.se-component-image,[class*="se-image"]'
-                ).length > 0
-                const hasDesc = Array.from(document.querySelectorAll('input,textarea'))
-                  .some(el => (el as HTMLInputElement).placeholder?.includes('사진 설명'))
-
-                if (!hasImg && !hasDesc) return 'none'
-
-                // "취소" 버튼과 같은 부모에 있는 "확인" 버튼 우선 (설정 패널용)
-                const allBtns = Array.from(document.querySelectorAll<HTMLElement>('button'))
-                const cancelBtn = allBtns.find(b => b.textContent?.trim() === '취소')
-                if (cancelBtn?.parentElement) {
-                  const siblings = Array.from(cancelBtn.parentElement.querySelectorAll<HTMLElement>('button'))
-                  const cfm = siblings.find(b => b.textContent?.trim() === '확인')
-                  if (cfm) { cfm.click(); return 'confirmed-sibling' }
-                }
-
-                // 넓게 "확인" 버튼 탐색
-                const cfm = allBtns.find(b => b.textContent?.trim() === '확인')
-                if (cfm) { cfm.click(); return 'confirmed-text' }
-
-                return 'detected-no-confirm'
-              }).catch(() => 'error')
-
-              if (result !== 'none' && result !== 'error') {
-                confirmClicked = result.startsWith('confirmed')
-                uploaded = true
-                console.log(`[img] ${section.idx + 1}번 클립보드 붙여넣기 성공 (${result})`)
-                if (confirmClicked) await editorPage.waitForTimeout(3000) // CDN 업로드 대기
-                break
-              }
-            }
-          }
-
-          // ── 방법 2: Playwright setInputFiles (파일 input이 DOM에 있을 때)
-          if (!uploaded) {
-            for (const frame of [editorFrame, ...editorPage.frames()]) {
-              const inputs = await frame.$$('input[type="file"]')
-              for (const input of inputs) {
-                try {
-                  await input.setInputFiles([imgPath])
-                  await editorPage.waitForTimeout(2500)
-                  uploaded = true
-                  console.log(`[img] ${section.idx + 1}번 setInputFiles 성공`)
-                  break
-                } catch { /* 다음 시도 */ }
-              }
-              if (uploaded) break
-            }
-          }
-
-          // ── 방법 3: 이미지 툴바 버튼 → filechooser 이벤트
-          if (!uploaded) {
+          // ── 방법 1: 사진 툴바 버튼 → 파일 선택기 (네이버 네이티브 CDN 업로드)
+          {
             const imgBtnSels = [
+              'button:has-text("사진")',               // 텍스트 기반 (가장 범용)
+              '.se-toolbar-item-imageUpload',
+              '.se-toolbar-item-image',
               '.se-image-toolbar-button',
               '.se-insert-menu-button-image',
+              'button[class*="imageUpload"]',
               'button[class*="image"][class*="toolbar"]',
             ]
             let imageBtn: Locator | null = null
+            // 메인 페이지(툴바) 우선, 그 다음 iframe
             for (const sel of imgBtnSels) {
-              for (const ctx of [editorCtx, editorPage] as LocatorCtx[]) {
-                const btn = ctx.locator(sel).first()
-                if (await btn.isVisible({ timeout: 800 }).catch(() => false)) {
-                  imageBtn = btn; break
-                }
-              }
-              if (imageBtn) break
+              try {
+                const btn = editorPage.locator(sel).first()
+                if (await btn.isVisible({ timeout: 600 }).catch(() => false)) { imageBtn = btn; break }
+                const btn2 = editorCtx.locator(sel).first()
+                if (await btn2.isVisible({ timeout: 600 }).catch(() => false)) { imageBtn = btn2; break }
+              } catch { continue }
             }
 
             if (imageBtn) {
-              const chooserPromise = editorPage.waitForEvent('filechooser', { timeout: 10_000 }).catch(() => null)
+              const chooserPromise = editorPage.waitForEvent('filechooser', { timeout: 12_000 }).catch(() => null)
               await imageBtn.click()
-              await editorPage.waitForTimeout(600)
+              await editorPage.waitForTimeout(800)
 
-              // 패널 내 버튼 로그
-              const panelBtns = await editorFrame.$$eval('button', bs =>
-                bs.filter(b => (b as HTMLElement).offsetParent !== null)
-                  .map(b => b.textContent?.trim().slice(0, 30))
-                  .filter(Boolean)
-              ).catch(() => [] as string[])
-              if (panelBtns.length) console.log('[img] 패널 버튼:', panelBtns.slice(0, 10))
-
-              // "내 PC" 계열 버튼 클릭
+              // 패널에서 "내 PC에서" 계열 버튼 클릭 — 메인 페이지 우선
               const pcTexts = ['내 PC에서', '내 PC', '내 컴퓨터', 'PC에서', '직접', '가져오기', '파일']
-              for (const frame of [editorFrame, ...editorPage.frames()]) {
-                for (const txt of pcTexts) {
-                  const btn = frame.locator(`button:has-text("${txt}")`).first()
-                  if (await btn.isVisible({ timeout: 400 }).catch(() => false)) {
-                    await btn.click()
-                    console.log(`[img] 패널 버튼 클릭: "${txt}"`)
-                    break
+              let pcClicked = false
+              for (const txt of pcTexts) {
+                const pcBtn = editorPage.locator(`button:has-text("${txt}")`).first()
+                if (await pcBtn.isVisible({ timeout: 600 }).catch(() => false)) {
+                  await pcBtn.click()
+                  pcClicked = true
+                  console.log(`[img] 패널 버튼 클릭: "${txt}"`)
+                  break
+                }
+              }
+              if (!pcClicked) {
+                for (const frame of [editorFrame, ...editorPage.frames()]) {
+                  for (const txt of pcTexts) {
+                    const pcBtn = frame.locator(`button:has-text("${txt}")`).first()
+                    if (await pcBtn.isVisible({ timeout: 400 }).catch(() => false)) {
+                      await pcBtn.click()
+                      pcClicked = true
+                      console.log(`[img] iframe 패널 버튼 클릭: "${txt}"`)
+                      break
+                    }
                   }
+                  if (pcClicked) break
                 }
               }
 
               const fileChooser = await chooserPromise
               if (fileChooser) {
                 await fileChooser.setFiles([imgPath])
-                await editorPage.waitForTimeout(2500)
+                await editorPage.waitForTimeout(5000)  // CDN 업로드 충분히 대기
                 uploaded = true
-                console.log(`[img] ${section.idx + 1}번 filechooser 업로드 성공`)
-              }
-
-              // filechooser도 실패 → 방법 3 마지막: 패널 내 file input에 Playwright setInputFiles
-              if (!uploaded) {
+                console.log(`[img] ${section.idx + 1}번 파일 선택기 업로드 성공`)
+              } else {
+                // filechooser 이벤트 없으면 DOM의 file input 직접 접근
                 for (const frame of [editorFrame, ...editorPage.frames()]) {
                   const input = await frame.waitForSelector('input[type="file"]', { timeout: 2000 }).catch(() => null)
                   if (input) {
                     await input.setInputFiles([imgPath])
-                    await editorPage.waitForTimeout(2500)
+                    await editorPage.waitForTimeout(5000)
                     uploaded = true
-                    console.log(`[img] ${section.idx + 1}번 패널 내 setInputFiles 성공`)
+                    console.log(`[img] ${section.idx + 1}번 패널 내 file input 업로드 성공`)
                     break
                   }
                 }
               }
+
+              // 레이아웃 선택 팝업 처리 ("개별사진" 등)
+              for (const ctx of [editorCtx, editorPage] as LocatorCtx[]) {
+                const singleBtn = ctx.locator('button:has-text("개별사진"),label:has-text("개별사진")').first()
+                if (await singleBtn.isVisible({ timeout: 1000 }).catch(() => false)) {
+                  await singleBtn.click()
+                  await editorPage.waitForTimeout(300)
+                  const insertBtn = ctx.locator('button:has-text("삽입"),button:has-text("적용")').first()
+                  if (await insertBtn.isVisible({ timeout: 1500 }).catch(() => false)) {
+                    await insertBtn.click()
+                    await editorPage.waitForTimeout(600)
+                  }
+                  break
+                }
+              }
+            }
+          }
+
+          // ── 방법 2: 클립보드 → Ctrl+V (폴백)
+          if (!uploaded) {
+            const imgBuffer = fs.readFileSync(imgPath)
+            const imgBase64 = imgBuffer.toString('base64')
+            const imgMime = imgPath.endsWith('.png') ? 'image/png' : 'image/jpeg'
+
+            const clipOk = await editorPage.evaluate(
+              async ({ b64, mime }: { b64: string; mime: string }) => {
+                try {
+                  const arr = Uint8Array.from(atob(b64), c => c.charCodeAt(0))
+                  const srcBlob = new Blob([arr], { type: mime })
+                  let pngBlob: Blob = srcBlob
+                  if (mime !== 'image/png') {
+                    const img = new Image()
+                    const url = URL.createObjectURL(srcBlob)
+                    await new Promise<void>((res, rej) => { img.onload = () => res(); img.onerror = rej; img.src = url })
+                    const canvas = document.createElement('canvas')
+                    canvas.width = img.naturalWidth || img.width
+                    canvas.height = img.naturalHeight || img.height
+                    const ctx = canvas.getContext('2d')!
+                    ctx.drawImage(img, 0, 0)
+                    URL.revokeObjectURL(url)
+                    pngBlob = await new Promise<Blob>(res => canvas.toBlob(b => res(b!), 'image/png'))
+                  }
+                  await navigator.clipboard.write([new ClipboardItem({ 'image/png': pngBlob })])
+                  return true
+                } catch { return false }
+              },
+              { b64: imgBase64, mime: imgMime }
+            ).catch(() => false)
+
+            if (clipOk) {
+              // contenteditable 재포커스 후 붙여넣기
+              await editorEl.click({ timeout: 3000 }).catch(() => {})
+              await editorPage.waitForTimeout(200)
+              await editorPage.keyboard.press('Control+V')
+              await editorPage.waitForTimeout(4000)  // CDN 업로드 대기
+              uploaded = true
+              console.log(`[img] ${section.idx + 1}번 클립보드 붙여넣기 성공`)
+            }
+          }
+
+          // ── 방법 3: Playwright setInputFiles (파일 input이 DOM에 노출된 경우)
+          if (!uploaded) {
+            for (const frame of [editorFrame, ...editorPage.frames()]) {
+              const inputs = await frame.$$('input[type="file"]')
+              for (const input of inputs) {
+                try {
+                  await input.setInputFiles([imgPath])
+                  await editorPage.waitForTimeout(5000)
+                  uploaded = true
+                  console.log(`[img] ${section.idx + 1}번 setInputFiles 성공`)
+                  break
+                } catch { /* 다음 시도 */ }
+              }
+              if (uploaded) break
             }
           }
 
@@ -514,27 +502,10 @@ export async function publishToNaver(
             continue
           }
 
-          // 삽입 버튼 처리 — "개별사진" 팝업이 있을 때만 (툴바 버튼 방식)
-          // "확인"은 제외: SE3 이미지 캡션 확인 버튼과 혼동 방지
-          for (const ctx of [editorCtx, editorPage] as LocatorCtx[]) {
-            const singleBtn = ctx.locator('button:has-text("개별사진"),label:has-text("개별사진")').first()
-            if (await singleBtn.isVisible({ timeout: 1000 }).catch(() => false)) {
-              await singleBtn.click()
-              await editorPage.waitForTimeout(300)
-              // 레이아웃 팝업의 삽입/적용 버튼
-              const insertBtn = ctx.locator('button:has-text("삽입"),button:has-text("적용")').first()
-              if (await insertBtn.isVisible({ timeout: 1500 }).catch(() => false)) {
-                await insertBtn.click()
-                await editorPage.waitForTimeout(600)
-              }
-              break
-            }
-          }
-
-          // 남은 패널 닫기 (이미지 설정 팝업 등)
+          // 라이브러리/이미지 패널 닫기 + 에디터 포커스 복구
           await editorPage.keyboard.press('Escape').catch(() => {})
           await editorPage.waitForTimeout(400)
-          // 에디터 본문 끝으로 이동
+          await editorEl.click({ timeout: 3000 }).catch(() => {})
           await editorPage.keyboard.press('Control+End')
           await editorPage.waitForTimeout(200)
           console.log(`[img] ${section.idx + 1}번 이미지 삽입 완료`)
