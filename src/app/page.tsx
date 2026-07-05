@@ -405,30 +405,42 @@ export default function BlogFormPage() {
         {naverConnected === false && (
           <div className="mb-4 flex items-center justify-between rounded-xl bg-amber-50 px-4 py-3 ring-1 ring-amber-200">
             <span className="text-sm text-amber-700">
-              네이버 계정을 연결해야 블로그에 발행할 수 있어요.
+              네이버 세션을 업로드해야 발행할 수 있어요.
             </span>
             <Link
               href="/naver-connect"
               className="shrink-0 rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-amber-600"
             >
-              계정 연결하기
+              연결하기
             </Link>
           </div>
         )}
-        {naverConnected === true && (
-          <div className="mb-4 flex items-center justify-between rounded-xl bg-emerald-50 px-4 py-3 ring-1 ring-emerald-200">
-            <span className="flex items-center gap-2 text-sm font-medium text-emerald-700">
-              <span className="flex h-2 w-2 rounded-full bg-emerald-500" />
-              네이버 계정 연결됨
-            </span>
-            <Link
-              href="/naver-connect"
-              className="text-xs text-emerald-600 hover:underline"
-            >
-              관리
-            </Link>
-          </div>
-        )}
+        {naverConnected === true && (() => {
+          const daysAgo = naverUploadedAt
+            ? Math.floor((Date.now() - new Date(naverUploadedAt).getTime()) / 86400000)
+            : null
+          const isStale = daysAgo !== null && daysAgo >= 14
+          return isStale ? (
+            <div className="mb-4 flex items-center justify-between rounded-xl bg-yellow-50 px-4 py-3 ring-1 ring-yellow-200">
+              <span className="text-sm text-yellow-700">
+                세션 갱신을 권장해요 ({daysAgo}일 전 업로드)
+              </span>
+              <Link href="/naver-connect" className="shrink-0 rounded-lg bg-yellow-500 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-yellow-600">
+                갱신하기
+              </Link>
+            </div>
+          ) : (
+            <div className="mb-4 flex items-center justify-between rounded-xl bg-emerald-50 px-4 py-3 ring-1 ring-emerald-200">
+              <span className="flex items-center gap-2 text-sm font-medium text-emerald-700">
+                <span className="flex h-2 w-2 rounded-full bg-emerald-500" />
+                네이버 연결됨{daysAgo !== null && ` (${daysAgo === 0 ? '오늘' : `${daysAgo}일 전`} 업로드)`}
+              </span>
+              <Link href="/naver-connect" className="text-xs text-emerald-600 hover:underline">
+                관리
+              </Link>
+            </div>
+          )
+        })()}
 
         {/* 헤더 */}
         <div className="mb-8 text-center">
