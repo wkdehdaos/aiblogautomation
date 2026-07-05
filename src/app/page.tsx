@@ -261,12 +261,15 @@ export default function BlogFormPage() {
       const photos = await Promise.all(
         testImages.map(async ({ path, name }) => {
           const res = await fetch(path)
-          const blob = await res.blob()
-          const file = new File([blob], name, { type: 'image/svg+xml' })
+          const svgBlob = await res.blob()
+          // SVG → JPEG 변환 (sharp는 SVG 미지원이므로 클라이언트에서 미리 변환)
+          const jpegBlob = await svgBlobToJpeg(svgBlob)
+          const jpegName = name.replace('.svg', '.jpg')
+          const file = new File([jpegBlob], jpegName, { type: 'image/jpeg' })
           return {
             id: `${name}-${Date.now()}-${Math.random()}`,
             file,
-            previewUrl: URL.createObjectURL(blob),
+            previewUrl: URL.createObjectURL(svgBlob), // 미리보기는 원본 SVG 사용
           }
         })
       )
