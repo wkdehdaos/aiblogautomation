@@ -369,6 +369,26 @@ export default function BlogFormPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-indigo-50 py-10 px-4">
       <div className="mx-auto max-w-2xl">
+        {/* 사용자 표시줄 */}
+        {currentUser && (
+          <div className="mb-4 flex items-center justify-between rounded-xl bg-white px-4 py-2.5 shadow-sm ring-1 ring-gray-100">
+            <span className="text-sm text-gray-600">
+              {currentUser.name ? (
+                <><span className="font-medium text-gray-900">{currentUser.name}</span> · {currentUser.email}</>
+              ) : (
+                currentUser.email
+              )}
+            </span>
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="text-xs font-medium text-gray-400 hover:text-red-500 transition"
+            >
+              로그아웃
+            </button>
+          </div>
+        )}
+
         {/* 헤더 */}
         <div className="mb-8 text-center">
           <h1 className="text-2xl font-bold text-gray-900">블로그 자동 작성</h1>
