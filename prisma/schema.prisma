@@ -12,9 +12,10 @@ model User {
   email       String      @unique
   password    String
   name        String?
-  naverBlogId  String?   // AES-256-GCM 암호화 저장
-  naverSession String?   // AES-256-GCM 암호화 저장
-  createdAt    DateTime  @default(now())
+  naverBlogId       String?
+  naverSession      String?   // AES-256-GCM 암호화 저장
+  sessionUploadedAt DateTime?
+  createdAt         DateTime  @default(now())
   updatedAt   DateTime    @updatedAt
   posts       BlogPost[]
 }
