@@ -2,6 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 
 type LengthOption = 'short' | 'medium' | 'long' | 'custom'
 type ToneOption = 'friendly' | 'professional' | 'informative'
