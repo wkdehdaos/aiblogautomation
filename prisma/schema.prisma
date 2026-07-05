@@ -8,11 +8,26 @@ datasource db {
 }
 
 model User {
-  id          String   @id @default(cuid())
-  email       String   @unique
+  id          String      @id @default(cuid())
+  email       String      @unique
   password    String
   name        String?
   naverBlogId String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  posts       BlogPost[]
+}
+
+model BlogPost {
+  id           String    @id @default(cuid())
+  userId       String
+  title        String
+  content      String
+  businessName String
+  keywords     String    @default("[]")  // JSON 배열 문자열
+  filePath     String?                   // posts/ 내 마크다운 경로
+  publishedUrl String?                   // 네이버 발행 URL
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
