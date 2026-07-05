@@ -397,6 +397,35 @@ export default function BlogFormPage() {
           </div>
         )}
 
+        {/* 네이버 연결 상태 배너 */}
+        {naverConnected === false && (
+          <div className="mb-4 flex items-center justify-between rounded-xl bg-amber-50 px-4 py-3 ring-1 ring-amber-200">
+            <span className="text-sm text-amber-700">
+              네이버 계정을 연결해야 블로그에 발행할 수 있어요.
+            </span>
+            <Link
+              href="/naver-connect"
+              className="shrink-0 rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-amber-600"
+            >
+              계정 연결하기
+            </Link>
+          </div>
+        )}
+        {naverConnected === true && (
+          <div className="mb-4 flex items-center justify-between rounded-xl bg-emerald-50 px-4 py-3 ring-1 ring-emerald-200">
+            <span className="flex items-center gap-2 text-sm font-medium text-emerald-700">
+              <span className="flex h-2 w-2 rounded-full bg-emerald-500" />
+              네이버 계정 연결됨
+            </span>
+            <Link
+              href="/naver-connect"
+              className="text-xs text-emerald-600 hover:underline"
+            >
+              관리
+            </Link>
+          </div>
+        )}
+
         {/* 헤더 */}
         <div className="mb-8 text-center">
           <h1 className="text-2xl font-bold text-gray-900">블로그 자동 작성</h1>
