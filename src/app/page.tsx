@@ -962,7 +962,15 @@ export default function BlogFormPage() {
                     if (data.success) {
                       setPublishStatus({ type: 'success', message: '발행 완료! 네이버 블로그에서 확인해보세요.' })
                     } else {
-                      setPublishStatus({ type: 'error', message: data.error ?? '발행 실패', step: data.lastStep })
+                      const isSessionExpired =
+                        data.error?.includes('세션') ||
+                        data.error?.includes('로그인') ||
+                        data.lastStep === '세션 로드'
+                      const message = isSessionExpired
+                        ? '세션이 만료됐습니다. naver-session.json을 다시 업로드해주세요.'
+                        : (data.error ?? '발행 실패')
+                      setPublishStatus({ type: 'error', message, step: data.lastStep })
+                      if (isSessionExpired) setNaverConnected(false)
                     }
                   } catch (err) {
                     setPublishStatus({ type: 'error', message: err instanceof Error ? err.message : '알 수 없는 오류' })
