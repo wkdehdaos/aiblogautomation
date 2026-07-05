@@ -1,10 +1,16 @@
 import { NextRequest } from 'next/server'
 import { publishToNaver } from '@/lib/naverPublish'
+import { getSession } from '@/lib/auth'
 import path from 'path'
 import fs from 'fs'
 import os from 'os'
 
 export async function POST(req: NextRequest) {
+  const session = await getSession()
+  if (!session) {
+    return Response.json({ success: false, error: '로그인이 필요합니다.', lastStep: '인증' }, { status: 401 })
+  }
+
   const { title, content, images, font, location } = (await req.json()) as {
     title: string
     content: string
