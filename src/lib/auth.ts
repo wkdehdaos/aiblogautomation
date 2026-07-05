@@ -4,7 +4,7 @@ import bcrypt from 'bcryptjs'
 
 const SESSION_COOKIE = 'session'
 const SECRET = new TextEncoder().encode(
-  process.env.SESSION_SECRET ?? 'fallback-secret-change-in-production'
+  process.env.JWT_SECRET ?? process.env.SESSION_SECRET ?? 'fallback-secret-change-in-production'
 )
 
 export interface SessionPayload {
