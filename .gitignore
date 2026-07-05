@@ -6,3 +6,5 @@
 *.log
 naver-session.json
 /tmp/naver-upload/
+
+/src/generated/prisma
