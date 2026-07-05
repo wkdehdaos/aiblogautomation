@@ -15,5 +15,5 @@ prisma/dev.db
 prisma/dev.db-shm
 prisma/dev.db-wal
 
-# exe 바이너리 (naver-login-app/에서 빌드 후 직접 복사)
-public/downloads/*.exe
+# naver-login-app 빌드 산출물 (public/downloads/는 배포 포함)
+naver-login-app/naver-login.exe
