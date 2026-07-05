@@ -1,0 +1,22 @@
+{
+  "name": "naver-login",
+  "version": "1.0.0",
+  "description": "네이버 블로그 자동화 - 로그인 도우미",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "build": "pkg index.js --target node18-win-x64 --output naver-login.exe"
+  },
+  "pkg": {
+    "assets": [
+      "node_modules/playwright/lib/**/*",
+      "node_modules/playwright-core/lib/**/*"
+    ]
+  },
+  "dependencies": {
+    "playwright": "latest"
+  },
+  "devDependencies": {
+    "pkg": "latest"
+  }
+}
