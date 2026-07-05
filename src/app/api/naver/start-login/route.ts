@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
     // 로그인 성공 감지: nidlogin이 아닌 URL로 이동
     try {
       await page.waitForURL(
-        (url) => !url.includes('nidlogin') && !url.includes('nid.naver.com/login'),
+        (url) => !url.href.includes('nidlogin') && !url.href.includes('nid.naver.com/login'),
         { timeout: 15_000 }
       )
     } catch {
