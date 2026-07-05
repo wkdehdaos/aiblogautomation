@@ -19,15 +19,9 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm ci
 
-# ── 소스 복사 + Prisma 생성 + 빌드 ──────────────────────────────
+# ── 소스 복사 + 빌드 ─────────────────────────────────────────────
 COPY . .
-
-# npm run build 안에 prisma generate가 포함됨
 RUN npm run build
-
-# standalone 출력에 정적 파일 병합 (Next.js standalone 필수 단계)
-RUN cp -r .next/static .next/standalone/.next/static \
-    && cp -r public   .next/standalone/public
 
 # SQLite 볼륨 마운트 경로 생성
 RUN mkdir -p /data
@@ -37,4 +31,4 @@ ENV NODE_ENV=production
 EXPOSE 3000
 
 # 컨테이너 시작 시 마이그레이션 적용 후 서버 실행
-CMD ["sh", "-c", "npx prisma migrate deploy && node .next/standalone/server.js"]
+CMD ["sh", "-c", "npx prisma migrate deploy && npm start"]
