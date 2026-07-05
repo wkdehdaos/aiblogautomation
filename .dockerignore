@@ -1,0 +1,9 @@
+node_modules
+.next
+.git
+*.log
+naver-session.json
+prisma/dev.db
+prisma/dev.db-shm
+prisma/dev.db-wal
+debug-screenshots
