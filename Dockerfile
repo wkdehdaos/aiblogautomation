@@ -28,6 +28,9 @@ RUN mkdir -p /data
 
 # ── 런타임 설정 ──────────────────────────────────────────────────
 ENV NODE_ENV=production
+# Railway Variables에 DATABASE_URL이 없을 때 기본값 (.env는 gitignore됨)
+ENV DATABASE_URL=file:/data/dev.db
 
 # 컨테이너 시작 시 마이그레이션 적용 후 서버 실행
-CMD sh -c "npx prisma migrate deploy && npx next start -p ${PORT}"
+# || true: 마이그레이션 실패해도 서버는 무조건 시작
+CMD sh -c "npx prisma migrate deploy || true && npx next start -p ${PORT}"
