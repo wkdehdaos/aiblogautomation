@@ -59,6 +59,27 @@ function renderContentWithImages(content: string, photos: PhotoItem[], mosaicUrl
   return rendered
 }
 
+// SVG blob → JPEG blob 변환 (sharp는 SVG 미지원)
+async function svgBlobToJpeg(svgBlob: Blob): Promise<Blob> {
+  const url = URL.createObjectURL(svgBlob)
+  return new Promise((resolve) => {
+    const img = new Image()
+    img.onload = () => {
+      const canvas = document.createElement('canvas')
+      canvas.width = img.naturalWidth || 400
+      canvas.height = img.naturalHeight || 300
+      const ctx = canvas.getContext('2d')!
+      ctx.fillStyle = '#ffffff'
+      ctx.fillRect(0, 0, canvas.width, canvas.height)
+      ctx.drawImage(img, 0, 0)
+      URL.revokeObjectURL(url)
+      canvas.toBlob(blob => resolve(blob ?? svgBlob), 'image/jpeg', 0.9)
+    }
+    img.onerror = () => { URL.revokeObjectURL(url); resolve(svgBlob) }
+    img.src = url
+  })
+}
+
 // 특정 영역 픽셀화
 function pixelateRegion(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, blockSize: number) {
   const x0 = Math.max(0, Math.floor(x))
