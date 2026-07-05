@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useCallback, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 
 type LengthOption = 'short' | 'medium' | 'long' | 'custom'
 type ToneOption = 'friendly' | 'professional' | 'informative'
