@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "build": "pkg index.js --target node18-win-x64 --output naver-login.exe"
+    "build": "npx pkg index.js --target node18-win-x64 --output naver-login.exe --compress GZip"
   },
   "pkg": {
     "assets": [
@@ -14,7 +14,8 @@
     ]
   },
   "dependencies": {
-    "playwright": "latest"
+    "playwright": "latest",
+    "node-fetch": "2"
   },
   "devDependencies": {
     "pkg": "latest"
