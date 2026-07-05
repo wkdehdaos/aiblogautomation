@@ -28,6 +28,7 @@ RUN mkdir -p /data
 
 # ── 런타임 설정 ──────────────────────────────────────────────────
 ENV NODE_ENV=production
+ENV PORT=3000
 # Railway Variables에 DATABASE_URL이 없을 때 기본값 (.env는 gitignore됨)
 ENV DATABASE_URL=file:/data/dev.db
 
