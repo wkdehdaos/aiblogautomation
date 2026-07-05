@@ -1,13 +1,14 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 
 export default function NaverConnectPage() {
   const [connected, setConnected] = useState<boolean | null>(null)
-  const [form, setForm] = useState({ naverId: '', naverPassword: '' })
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [fileName, setFileName] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     fetch('/api/naver/status')
@@ -16,28 +17,42 @@ export default function NaverConnectPage() {
       .catch(() => setConnected(false))
   }, [])
 
-  const handleConnect = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true)
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setFileName(file.name)
     setMessage(null)
+    setLoading(true)
+
     try {
-      const res = await fetch('/api/naver/start-login', {
+      const text = await file.text()
+      let sessionData: unknown
+      try {
+        sessionData = JSON.parse(text)
+      } catch {
+        setMessage({ type: 'error', text: '올바른 JSON 파일이 아닙니다.' })
+        return
+      }
+
+      const res = await fetch('/api/naver/upload-session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        body: JSON.stringify({ session: sessionData }),
       })
       const data = await res.json() as { ok?: boolean; error?: string }
+
       if (data.ok) {
         setConnected(true)
-        setForm({ naverId: '', naverPassword: '' })
-        setMessage({ type: 'success', text: '네이버 계정이 연결됐습니다.' })
+        setMessage({ type: 'success', text: '세션이 업로드됐습니다. 이제 블로그에 발행할 수 있어요.' })
       } else {
-        setMessage({ type: 'error', text: data.error ?? '연결에 실패했습니다.' })
+        setMessage({ type: 'error', text: data.error ?? '업로드에 실패했습니다.' })
       }
     } catch {
-      setMessage({ type: 'error', text: '서버 오류가 발생했습니다.' })
+      setMessage({ type: 'error', text: '파일을 읽는 중 오류가 발생했습니다.' })
     } finally {
       setLoading(false)
+      if (fileInputRef.current) fileInputRef.current.value = ''
     }
   }
 
@@ -48,6 +63,7 @@ export default function NaverConnectPage() {
     try {
       await fetch('/api/naver/disconnect', { method: 'POST' })
       setConnected(false)
+      setFileName(null)
       setMessage({ type: 'success', text: '연결이 해제됐습니다.' })
     } catch {
       setMessage({ type: 'error', text: '해제 중 오류가 발생했습니다.' })
@@ -55,9 +71,6 @@ export default function NaverConnectPage() {
       setLoading(false)
     }
   }
-
-  const inputClass =
-    'w-full rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-800 placeholder-gray-400 outline-none transition focus:border-indigo-400 focus:ring-2 focus:ring-indigo-200'
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-indigo-50 py-10 px-4">
@@ -69,28 +82,28 @@ export default function NaverConnectPage() {
         </div>
 
         <div className="mb-8 text-center">
-          <h1 className="text-2xl font-bold text-gray-900">네이버 계정 연결</h1>
+          <h1 className="text-2xl font-bold text-gray-900">네이버 세션 연결</h1>
           <p className="mt-1.5 text-sm text-gray-500">
-            블로그 자동 발행을 위해 네이버 계정을 연결해주세요.
+            로컬에서 발급받은 세션 파일을 업로드해 블로그 발행을 활성화해주세요.
           </p>
         </div>
 
-        {/* 연결 상태 표시 */}
+        {/* 연결 상태 */}
         <div className="mb-6 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-100">
-          <p className="mb-1 text-xs font-medium text-gray-400 uppercase tracking-wide">연결 상태</p>
+          <p className="mb-1 text-xs font-medium uppercase tracking-wide text-gray-400">연결 상태</p>
           {connected === null ? (
             <p className="text-sm text-gray-400">확인 중...</p>
           ) : connected ? (
             <div className="flex items-center justify-between">
               <span className="flex items-center gap-2 text-sm font-semibold text-emerald-600">
                 <span className="flex h-2 w-2 rounded-full bg-emerald-500" />
-                네이버 계정 연결됨
+                세션 연결됨
               </span>
               <button
                 type="button"
                 onClick={handleDisconnect}
                 disabled={loading}
-                className="text-xs font-medium text-gray-400 hover:text-red-500 transition disabled:opacity-50"
+                className="text-xs font-medium text-gray-400 transition hover:text-red-500 disabled:opacity-50"
               >
                 연결 해제
               </button>
@@ -114,61 +127,65 @@ export default function NaverConnectPage() {
           </div>
         )}
 
-        {/* 로그인 폼 (미연결 상태에서만 표시) */}
-        {connected === false && (
-          <form onSubmit={handleConnect} className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-gray-100 space-y-4">
-            <h2 className="text-base font-semibold text-gray-800">네이버 계정으로 연결하기</h2>
+        {/* 업로드 섹션 */}
+        <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-gray-100 space-y-5">
+          <h2 className="text-base font-semibold text-gray-800">세션 파일 업로드</h2>
 
-            <div className="rounded-xl bg-amber-50 px-4 py-3 text-xs text-amber-700 ring-1 ring-amber-200">
-              입력한 계정 정보는 로그인에만 사용되며 서버에 저장되지 않습니다.
-              로그인 세션만 암호화되어 저장됩니다.
-            </div>
+          {/* 사용 방법 안내 */}
+          <div className="rounded-xl bg-slate-50 p-4 ring-1 ring-slate-200 space-y-2">
+            <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">사용 방법</p>
+            <ol className="space-y-1.5 text-sm text-slate-600 list-decimal list-inside">
+              <li>로컬 컴퓨터에서 아래 명령어 실행</li>
+              <li>
+                <code className="rounded bg-slate-200 px-1.5 py-0.5 text-xs font-mono text-slate-800">
+                  npm run naver-login
+                </code>
+              </li>
+              <li>브라우저에서 네이버 로그인 완료</li>
+              <li>생성된 <code className="rounded bg-slate-200 px-1.5 py-0.5 text-xs font-mono text-slate-800">naver-session.json</code> 업로드</li>
+            </ol>
+          </div>
 
-            <div>
-              <label className="mb-1.5 block text-sm font-medium text-gray-700">네이버 아이디</label>
-              <input
-                type="text"
-                required
-                autoComplete="username"
-                className={inputClass}
-                placeholder="아이디 입력"
-                value={form.naverId}
-                onChange={(e) => setForm((p) => ({ ...p, naverId: e.target.value }))}
-              />
-            </div>
-
-            <div>
-              <label className="mb-1.5 block text-sm font-medium text-gray-700">비밀번호</label>
-              <input
-                type="password"
-                required
-                autoComplete="current-password"
-                className={inputClass}
-                placeholder="비밀번호 입력"
-                value={form.naverPassword}
-                onChange={(e) => setForm((p) => ({ ...p, naverPassword: e.target.value }))}
-              />
-            </div>
-
+          {/* 파일 업로드 버튼 */}
+          <div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".json,application/json"
+              className="hidden"
+              onChange={handleFileUpload}
+            />
             <button
-              type="submit"
+              type="button"
               disabled={loading}
-              className="w-full rounded-xl bg-[#03C75A] py-3 text-sm font-semibold text-white transition hover:bg-[#02b351] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+              onClick={() => fileInputRef.current?.click()}
+              className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-indigo-200 bg-indigo-50 py-5 text-sm font-medium text-indigo-600 transition hover:bg-indigo-100 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {loading ? (
-                <span className="flex items-center justify-center gap-2">
+                <>
                   <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                   </svg>
-                  로그인 중... (최대 30초)
-                </span>
+                  업로드 중...
+                </>
               ) : (
-                '네이버 계정 연결하기'
+                <>
+                  <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                  </svg>
+                  {fileName ?? 'naver-session.json 업로드'}
+                </>
               )}
             </button>
-          </form>
-        )}
+          </div>
+
+          {connected && (
+            <p className="text-center text-xs text-gray-400">
+              세션이 만료되면 위 과정을 반복해 다시 업로드해주세요.
+            </p>
+          )}
+        </div>
       </div>
     </div>
   )
