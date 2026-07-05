@@ -135,10 +135,10 @@ export async function publishToNaver(
 
   const isHeadless = process.env.NODE_ENV === 'production'
   const browser = await chromium.launch({ headless: isHeadless })
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const storageStateArg: any = storageStateData ?? SESSION_PATH
   const context = await browser.newContext({
-    storageState: storageStateData
-      ? (storageStateData as Parameters<typeof browser.newContext>[0]['storageState'])
-      : SESSION_PATH,
+    storageState: storageStateArg,
     permissions: ['clipboard-read', 'clipboard-write'],
   })
   const page = await context.newPage()
