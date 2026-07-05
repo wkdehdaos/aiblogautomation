@@ -161,6 +161,20 @@ export default function BlogFormPage() {
   const previewRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
+    fetch('/api/auth/me')
+      .then((r) => r.json())
+      .then((d: { user?: { email: string; name: string | null } | null }) => {
+        if (d.user) setCurrentUser(d.user)
+      })
+      .catch(() => {})
+  }, [])
+
+  const handleLogout = async () => {
+    await fetch('/api/auth/logout', { method: 'POST' })
+    router.push('/login')
+  }
+
+  useEffect(() => {
     if (result) {
       previewRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
     }
