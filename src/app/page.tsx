@@ -174,7 +174,10 @@ export default function BlogFormPage() {
       .catch(() => {})
     fetch('/api/naver/status')
       .then((r) => r.json())
-      .then((d: { connected?: boolean }) => setNaverConnected(!!d.connected))
+      .then((d: { connected?: boolean; sessionUploadedAt?: string | null }) => {
+        setNaverConnected(!!d.connected)
+        setNaverUploadedAt(d.sessionUploadedAt ?? null)
+      })
       .catch(() => setNaverConnected(false))
   }, [])
 
