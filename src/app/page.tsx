@@ -985,7 +985,7 @@ export default function BlogFormPage() {
             </div>
             {isPublishing && (
               <p className="pb-6 text-center text-xs text-gray-400">
-                네이버에 발행 중이에요... 브라우저 창이 잠깐 뜰 거예요
+                네이버에 발행 중이에요... 잠시 기다려주세요
               </p>
             )}
           </div>
