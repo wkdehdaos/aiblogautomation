@@ -171,6 +171,10 @@ export default function BlogFormPage() {
         if (d.user) setCurrentUser(d.user)
       })
       .catch(() => {})
+    fetch('/api/naver/status')
+      .then((r) => r.json())
+      .then((d: { connected?: boolean }) => setNaverConnected(!!d.connected))
+      .catch(() => setNaverConnected(false))
   }, [])
 
   const handleLogout = async () => {
