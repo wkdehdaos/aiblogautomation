@@ -58,10 +58,6 @@ app.on('second-instance', () => {
   if (win) { if (win.isMinimized()) win.restore(); win.focus() }
 })
 
-// Playwright 브라우저 경로
-const browsersPath = path.join(process.resourcesPath, 'browsers')
-process.env.PLAYWRIGHT_BROWSERS_PATH = browsersPath
-log('PLAYWRIGHT_BROWSERS_PATH=' + browsersPath)
 
 const SERVER = 'https://aiblogautomation-production.up.railway.app'
 const TIMEOUT_MS = 3 * 60 * 1000
