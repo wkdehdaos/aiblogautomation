@@ -7,7 +7,7 @@
     "build": "electron-builder --win --x64"
   },
   "dependencies": {
-    "playwright": "latest"
+    "playwright-core": "latest"
   },
   "devDependencies": {
     "electron": "latest",
