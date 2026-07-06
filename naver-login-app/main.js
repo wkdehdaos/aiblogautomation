@@ -121,10 +121,10 @@ async function runLogin(token) {
   log('runLogin() 시작')
   let chromium
   try {
-    ;({ chromium } = require('playwright'))
-    log('playwright require 완료')
+    ;({ chromium } = require('playwright-core'))
+    log('playwright-core require 완료')
   } catch (e) {
-    log('playwright require 실패: ' + e.message)
+    log('playwright-core require 실패: ' + e.message)
     send('error', 'playwright 로드 실패\n' + e.message)
     return
   }
@@ -133,9 +133,8 @@ async function runLogin(token) {
 
   let browser = null
   const attempts = [
-    () => { log('Chromium 번들 시도'); return chromium.launch({ headless: false }) },
-    () => { log('Chrome 채널 시도'); return chromium.launch({ headless: false, channel: 'chrome' }) },
     () => { log('Edge 채널 시도'); return chromium.launch({ headless: false, channel: 'msedge' }) },
+    () => { log('Chrome 채널 시도'); return chromium.launch({ headless: false, channel: 'chrome' }) },
   ]
   for (const attempt of attempts) {
     try { browser = await attempt(); log('브라우저 실행 성공'); break } catch (e) { log('시도 실패: ' + e.message) }
@@ -143,7 +142,7 @@ async function runLogin(token) {
 
   if (!browser) {
     log('모든 브라우저 시도 실패')
-    send('error', '브라우저를 실행할 수 없습니다.\nChrome 또는 Edge를 설치해주세요.')
+    send('error', 'Edge 또는 Chrome이 필요합니다.\n설치 후 다시 시도해주세요.')
     return
   }
 
