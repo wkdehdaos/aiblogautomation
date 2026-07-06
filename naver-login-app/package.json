@@ -1,41 +1,36 @@
 {
   "name": "naver-login",
   "version": "1.0.0",
-  "description": "네이버 블로그 자동화 - 로그인 도우미",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
     "build": "electron-builder --win --x64"
   },
   "dependencies": {
-    "playwright": "latest",
-    "node-fetch": "2"
+    "playwright": "latest"
   },
   "devDependencies": {
     "electron": "latest",
     "electron-builder": "latest"
   },
   "build": {
-    "appId": "com.aiblog.naver-login",
-    "productName": "Naver Login Helper",
+    "appId": "com.aiblog.naverlogin",
+    "productName": "네이버 연결",
     "artifactName": "naver-login-setup.exe",
-    "files": [
-      "main.js",
-      "preload.js",
-      "renderer/**",
-      "node_modules/**"
-    ],
-    "asarUnpack": ["**/*.node"],
+    "asar": false,
     "win": {
-      "target": [
-        { "target": "nsis", "arch": ["x64"] }
-      ]
+      "target": "nsis"
     },
     "nsis": {
       "oneClick": false,
-      "allowToChangeInstallationDirectory": false,
       "createDesktopShortcut": true,
-      "shortcutName": "Naver Login Helper"
-    }
+      "shortcutName": "네이버 연결"
+    },
+    "extraResources": [
+      {
+        "from": "node_modules/playwright/.local-browsers",
+        "to": "browsers"
+      }
+    ]
   }
 }
