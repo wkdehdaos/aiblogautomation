@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'unsafe-inline'">
+  <title>Naver Login Helper</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0 }
+
+    body {
+      font-family: 'Malgun Gothic', '맑은 고딕', -apple-system, sans-serif;
+      background: #0d1117;
+      color: #e6edf3;
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #app {
+      width: 400px;
+      background: #161b22;
+      border-radius: 12px;
+      border: 1px solid #30363d;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+      overflow: hidden;
+    }
+
+    header {
+      background: #21262d;
+      border-bottom: 1px solid #30363d;
+      padding: 14px 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .logo {
+      width: 32px;
+      height: 32px;
+      background: #03c75a;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      font-weight: 900;
+      color: white;
+      flex-shrink: 0;
+    }
+
+    .app-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: #f0f6fc;
+    }
+
+    main {
+      padding: 24px 24px 20px;
+    }
+
+    .screen { display: none }
+    .screen.active { display: block }
+
+    /* Input screen */
+    .desc {
+      font-size: 13px;
+      color: #8b949e;
+      line-height: 1.6;
+      margin-bottom: 16px;
+    }
+
+    .desc strong {
+      color: #e6edf3;
+      display: block;
+      font-size: 14px;
+      margin-bottom: 4px;
+    }
+
+    input[type="text"] {
+      width: 100%;
+      padding: 9px 12px;
+      background: #0d1117;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      color: #e6edf3;
+      font-size: 13px;
+      font-family: 'Consolas', 'Courier New', monospace;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    input[type="text"]:focus {
+      border-color: #03c75a;
+    }
+
+    input[type="text"]::placeholder {
+      color: #484f58;
+    }
+
+    .btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      padding: 9px 0;
+      border-radius: 6px;
+      border: none;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+      font-family: 'Malgun Gothic', sans-serif;
+      margin-top: 10px;
+      transition: opacity 0.15s;
+    }
+
+    .btn:hover { opacity: 0.85 }
+    .btn:active { opacity: 0.7 }
+
+    .btn-green { background: #238636; color: #fff }
+    .btn-gray  { background: #21262d; color: #e6edf3; border: 1px solid #30363d }
+
+    /* Status screen */
+    .status-area {
+      text-align: center;
+      padding: 12px 0 8px;
+    }
+
+    .status-icon {
+      font-size: 42px;
+      line-height: 1;
+      margin-bottom: 14px;
+      display: block;
+    }
+
+    .spinner {
+      width: 42px;
+      height: 42px;
+      border: 3px solid #30363d;
+      border-top-color: #03c75a;
+      border-radius: 50%;
+      animation: spin 0.75s linear infinite;
+      margin: 0 auto 14px;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg) } }
+
+    .status-msg {
+      font-size: 13px;
+      color: #8b949e;
+      line-height: 1.7;
+      white-space: pre-line;
+    }
+
+    .status-msg.ok  { color: #3fb950 }
+    .status-msg.err { color: #f85149 }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <header>
+      <div class="logo">N</div>
+      <div class="app-title">네이버 로그인 도우미</div>
+    </header>
+    <main>
+
+      <!-- 토큰 입력 화면 -->
+      <div id="screen-input" class="screen">
+        <div class="desc">
+          <strong>네이버 계정 연결</strong>
+          사이트에서 "내 토큰 복사" 버튼을 눌러 복사한 후<br>
+          아래 칸에 붙여넣고 시작하세요.
+        </div>
+        <input id="token-input" type="text" placeholder="토큰을 여기에 붙여넣으세요" autocomplete="off" spellcheck="false" />
+        <button class="btn btn-green" id="btn-start">시작하기</button>
+      </div>
+
+      <!-- 상태 표시 화면 -->
+      <div id="screen-status" class="screen">
+        <div class="status-area">
+          <div id="status-icon"></div>
+          <div id="status-msg" class="status-msg"></div>
+        </div>
+        <button class="btn btn-gray" id="btn-close" style="display:none">닫기</button>
+        <button class="btn btn-gray" id="btn-retry" style="display:none">다시 시도</button>
+      </div>
+
+    </main>
+  </div>
+
+  <script>
+    const screenInput  = document.getElementById('screen-input')
+    const screenStatus = document.getElementById('screen-status')
+    const tokenInput   = document.getElementById('token-input')
+    const btnStart     = document.getElementById('btn-start')
+    const statusIcon   = document.getElementById('status-icon')
+    const statusMsg    = document.getElementById('status-msg')
+    const btnClose     = document.getElementById('btn-close')
+    const btnRetry     = document.getElementById('btn-retry')
+
+    function showInput() {
+      screenInput.classList.add('active')
+      screenStatus.classList.remove('active')
+    }
+
+    function showStatus(iconHtml, msg, cls) {
+      screenInput.classList.remove('active')
+      screenStatus.classList.add('active')
+      statusIcon.innerHTML = iconHtml
+      statusMsg.textContent = msg
+      statusMsg.className = 'status-msg' + (cls ? ' ' + cls : '')
+    }
+
+    window.api.onState(({ state, message }) => {
+      btnClose.style.display = 'none'
+      btnRetry.style.display = 'none'
+
+      switch (state) {
+        case 'input':
+          showInput()
+          tokenInput.focus()
+          break
+
+        case 'loading':
+        case 'sending':
+          showStatus('<div class="spinner"></div>', message)
+          break
+
+        case 'browser-open':
+          showStatus('🌐', message)
+          break
+
+        case 'success':
+          showStatus('✅', message, 'ok')
+          btnClose.style.display = 'flex'
+          break
+
+        case 'error':
+          showStatus('❌', message, 'err')
+          btnRetry.style.display = 'flex'
+          break
+      }
+    })
+
+    btnStart.addEventListener('click', () => {
+      const t = tokenInput.value.trim()
+      if (t) window.api.submitToken(t)
+    })
+
+    tokenInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter') btnStart.click()
+    })
+
+    btnClose.addEventListener('click', () => window.api.closeWindow())
+
+    btnRetry.addEventListener('click', () => {
+      showInput()
+      tokenInput.value = ''
+      tokenInput.focus()
+    })
+  </script>
+</body>
+</html>
