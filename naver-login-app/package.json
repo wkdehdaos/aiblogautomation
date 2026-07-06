@@ -26,11 +26,5 @@
       "createDesktopShortcut": true,
       "shortcutName": "네이버 연결"
     },
-    "extraResources": [
-      {
-        "from": "node_modules/playwright/.local-browsers",
-        "to": "browsers"
-      }
-    ]
   }
 }
