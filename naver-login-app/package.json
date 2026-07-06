@@ -2,22 +2,40 @@
   "name": "naver-login",
   "version": "1.0.0",
   "description": "네이버 블로그 자동화 - 로그인 도우미",
-  "main": "index.js",
+  "main": "main.js",
   "scripts": {
-    "start": "node index.js",
-    "build": "npx pkg index.js --target node18-win-x64 --output naver-login.exe --compress GZip"
-  },
-  "pkg": {
-    "assets": [
-      "node_modules/playwright/lib/**/*",
-      "node_modules/playwright-core/lib/**/*"
-    ]
+    "start": "electron .",
+    "build": "electron-builder --win --x64"
   },
   "dependencies": {
     "playwright": "latest",
     "node-fetch": "2"
   },
   "devDependencies": {
-    "pkg": "latest"
+    "electron": "latest",
+    "electron-builder": "latest"
+  },
+  "build": {
+    "appId": "com.aiblog.naver-login",
+    "productName": "Naver Login Helper",
+    "artifactName": "naver-login-setup.exe",
+    "files": [
+      "main.js",
+      "preload.js",
+      "renderer/**",
+      "node_modules/**"
+    ],
+    "asarUnpack": ["**/*.node"],
+    "win": {
+      "target": [
+        { "target": "nsis", "arch": ["x64"] }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": false,
+      "createDesktopShortcut": true,
+      "shortcutName": "Naver Login Helper"
+    }
   }
 }
