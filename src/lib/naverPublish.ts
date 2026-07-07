@@ -753,7 +753,7 @@ export async function publishToNaver(
     // ── 8. 발행 전 본문 최종 검증 ────────────────────────────────────
     // bodyVerified=false는 삽입 자체를 하지 않은 것 → 하드 차단
     // bodyVerified=true이나 getBodyText 빈값은 headless에서 DOM 접근 문제일 수 있어 경고만
-    if (!bodyVerified) {
+    if (!outerBodyVerified) {
       await snap(editorPage, '발행차단-본문비어있음', stepIndex + 1)
       await browser.close().catch(() => {})
       return { success: false, error: '본문이 비어 있어 발행을 중단했습니다.', lastStep: '발행전검증' }
