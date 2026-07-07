@@ -49,10 +49,13 @@ export default function PricingPage() {
     try {
       const clientKey = process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY ?? ''
       const tossPayments = await loadTossPayments(clientKey)
-      const billing = tossPayments.billing({ customerKey: user.userId })
-      await billing.requestBillingAuth({
+      const payment = tossPayments.payment({ customerKey: user.userId })
+      await payment.requestBillingAuth({
+        method: 'CARD',
         successUrl: `${window.location.origin}/payment/success?plan=${plan}`,
         failUrl: `${window.location.origin}/payment/fail`,
+        customerEmail: user.email,
+        customerName: user.name ?? user.email,
       })
     } catch (err) {
       console.error(err)
