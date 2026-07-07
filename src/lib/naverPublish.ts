@@ -334,6 +334,7 @@ export async function publishToNaver(
     })
 
     // ── 5. 본문 + 이미지 입력 ────────────────────────────────────────
+    let outerBodyVerified = false
     await step('본문및이미지입력', async () => {
       // PostWriteForm 프레임 (execCommand·클립보드용)
       const editorFrame = editorPage.frames().find(f => f.url().includes('PostWriteForm'))
