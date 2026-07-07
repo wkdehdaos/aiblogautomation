@@ -37,28 +37,39 @@ async function closeHelpPanels(page: Page) {
 }
 
 async function dismissDraftModal(page: Page) {
-  // 메인 페이지 + 모든 iframe 순회하여 임시저장 모달 찾기
-  const contexts = [page, ...page.frames().map(f => page.frameLocator(`iframe[src="${f.url()}"]`))]
-  for (const ctx of [page, ...page.frames()]) {
-    const locator = ctx === page
-      ? page.locator('text=작성 중인 글이 있습니다').first()
-      : (page.frameLocator(`iframe[src="${(ctx as import('playwright').Frame).url()}"]`)).locator('text=작성 중인 글이 있습니다').first()
-    if (!await locator.isVisible({ timeout: 800 }).catch(() => false)) continue
+  // PostWriteForm 프레임 우선, 이후 모든 프레임 순회
+  const pfFrame = page.frames().find(f => f.url().includes('PostWriteForm'))
+  const framesToCheck = pfFrame
+    ? [pfFrame, page.mainFrame()]
+    : [page.mainFrame(), ...page.frames()]
 
-    // 모달 발견 → 취소(거절) 클릭
-    const cancelBtn = ctx === page
-      ? page.locator('button:has-text("취소")').first()
-      : (page.frameLocator(`iframe[src="${(ctx as import('playwright').Frame).url()}"]`)).locator('button:has-text("취소")').first()
+  for (const frame of framesToCheck) {
+    // 팝업 클래스 또는 텍스트로 감지
+    const popupVisible = await frame.evaluate(() =>
+      !!(document.querySelector('.se-popup-alert') ||
+         document.querySelector('[class*="popup_alert"]') ||
+         document.querySelector('[data-name*="popup-alert"]') ||
+         Array.from(document.querySelectorAll('*')).find(el =>
+           el.textContent?.includes('작성 중인 글이 있습니다') && (el as HTMLElement).offsetParent !== null
+         ))
+    ).catch(() => false)
+    if (!popupVisible) continue
 
-    if (await cancelBtn.isVisible({ timeout: 800 }).catch(() => false)) {
-      await cancelBtn.click()
-    } else {
-      await page.keyboard.press('Escape')
-    }
-    await page.waitForTimeout(600)
+    // 취소 버튼(첫 번째 버튼) 클릭 — 새 글 작성
+    const clicked = await frame.evaluate(() => {
+      const popup = document.querySelector('.se-popup-alert, [class*="popup_alert"]')
+      if (!popup) return false
+      const btns = Array.from(popup.querySelectorAll('button'))
+      const cancel = btns.find(b => b.textContent?.includes('취소')) ?? btns[0]
+      if (cancel) { (cancel as HTMLElement).click(); return true }
+      return false
+    }).catch(() => false)
+
+    if (!clicked) await page.keyboard.press('Escape')
+    await page.waitForTimeout(700)
+    console.log('  [draft modal] 임시저장 모달 닫음')
     return
   }
-  void contexts // suppress unused warning
 }
 
 // PostWriteForm iframe 우선 → 메인 페이지 순으로 탐색
