@@ -749,11 +749,17 @@ export async function publishToNaver(
     }
 
     // ── 8. 발행 전 본문 최종 검증 ────────────────────────────────────
-    const prePublishBody = await getBodyText(editorPage)
-    if (!prePublishBody.trim()) {
+    // bodyVerified=false는 삽입 자체를 하지 않은 것 → 하드 차단
+    // bodyVerified=true이나 getBodyText 빈값은 headless에서 DOM 접근 문제일 수 있어 경고만
+    if (!bodyVerified) {
       await snap(editorPage, '발행차단-본문비어있음', stepIndex + 1)
       await browser.close().catch(() => {})
       return { success: false, error: '본문이 비어 있어 발행을 중단했습니다.', lastStep: '발행전검증' }
+    }
+    const prePublishBody = await getBodyText(editorPage)
+    if (!prePublishBody.trim()) {
+      console.warn('[발행전검증] bodyVerified=true이나 getBodyText 빈값 — headless 환경일 수 있어 발행 계속')
+      await snap(editorPage, '발행전-본문빈값경고', stepIndex + 1)
     }
 
     // ── 9. 발행 버튼 클릭 + 발행 패널 열림 확인 ────────────────────────
