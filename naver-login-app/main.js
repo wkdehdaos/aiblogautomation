@@ -164,8 +164,8 @@ async function runLogin(token) {
     for (const sel of selectors) {
       const el = document.querySelector(sel)
       if (el) {
-        if (!(el as HTMLInputElement).checked) (el as HTMLElement).click()
-        return (el as HTMLInputElement).checked
+        if (!el.checked) el.click()
+        return el.checked
       }
     }
     return false
