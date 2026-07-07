@@ -59,7 +59,7 @@ app.on('second-instance', () => {
 })
 
 
-const SERVER = 'https://aiblogautomation-production.up.railway.app'
+const SERVER = process.env.NAVER_SERVER ?? 'https://aiblogautomation-production.up.railway.app'
 const TIMEOUT_MS = 3 * 60 * 1000
 
 let win = null
