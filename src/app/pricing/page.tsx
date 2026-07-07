@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { loadTossPayments } from '@tosspayments/tosspayments-sdk'
-import { Plan, PLANS } from '@/lib/plans'
+import type { Plan } from '@/lib/plans'
+import { PLANS } from '@/lib/plans'
 
 interface PlanStatus {
   plan: Plan
