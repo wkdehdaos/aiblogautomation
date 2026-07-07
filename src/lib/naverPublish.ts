@@ -257,7 +257,7 @@ export async function publishToNaver(
           if (!await el.isVisible({ timeout: 800 }).catch(() => false)) continue
           await el.click({ timeout: 3000 })
           await editorPage.waitForTimeout(300)
-          await frame.locator(CE).first().type(title)
+          await editorPage.keyboard.type(title)
           console.log(`[title] frame 직접 순회 폴백: ${frame.url()}`)
           titleEntered = true
           break
