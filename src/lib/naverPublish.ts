@@ -218,6 +218,17 @@ export async function publishToNaver(
     await step('에디터로드대기', async () => {
       await editorPage.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {})
       await editorPage.waitForTimeout(2000)   // 글쓰기 페이지 로드 후 2초 대기
+
+      // 네이버 세션 만료 감지 (로그인 버튼 노출 = 세션 무효)
+      const isLoginPage = await editorPage.evaluate(() =>
+        !!(document.querySelector('.btn_login, #id_login_btn, [class*="btn_login"]') ||
+           document.title.includes('로그인') ||
+           window.location.href.includes('nid.naver.com/nidlogin'))
+      ).catch(() => false)
+      if (isLoginPage) {
+        throw new Error('네이버 세션이 만료됐습니다. 네이버 계정을 다시 연결해주세요.')
+      }
+
       await closeHelpPanels(editorPage)
       await dismissDraftModal(editorPage)
       editorCtx = await findEditorCtx(editorPage)
