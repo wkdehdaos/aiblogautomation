@@ -152,12 +152,25 @@ async function runLogin(token) {
   log('네이버 로그인 페이지 열림')
 
   // "로그인 상태 유지" 자동 체크 — 장기 세션 쿠키 발급 (30일)
-  await page.waitForLoadState('domcontentloaded').catch(() => {})
-  await page.evaluate(() => {
-    const keep = document.querySelector('#keep_login_check, #stay_signed_in, [name="keepLogin"]')
-    if (keep && !keep.checked) keep.click()
-  }).catch(() => {})
-  log('로그인 상태 유지 체크 시도')
+  // networkidle까지 기다려야 JS가 체크박스를 동적으로 생성한 뒤에 접근 가능
+  await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {})
+  const checked = await page.evaluate(() => {
+    const selectors = [
+      '#keep_login_check',
+      '#stay_signed_in',
+      '[name="keepLogin"]',
+      'input[type="checkbox"]',
+    ]
+    for (const sel of selectors) {
+      const el = document.querySelector(sel)
+      if (el) {
+        if (!(el as HTMLInputElement).checked) (el as HTMLElement).click()
+        return (el as HTMLInputElement).checked
+      }
+    }
+    return false
+  }).catch(() => false)
+  log('로그인 상태 유지 체크 결과: ' + checked)
 
   send('loading', '네이버 로그인 중...\n브라우저에서 로그인해주세요.')
 
