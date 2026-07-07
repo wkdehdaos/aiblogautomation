@@ -153,7 +153,7 @@ export default function BlogFormPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [result, setResult] = useState<GenerateResult | null>(null)
   const [isPublishing, setIsPublishing] = useState(false)
-  const [publishStatus, setPublishStatus] = useState<{ type: 'success' | 'error'; message: string; step?: string } | null>(null)
+  const [publishStatus, setPublishStatus] = useState<{ type: 'success' | 'error'; message: string; step?: string; sessionExpired?: boolean } | null>(null)
   const [isSaving, setIsSaving] = useState(false)
   const [saveStatus, setSaveStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
   const [selectedFont, setSelectedFont] = useState('나눔고딕')
