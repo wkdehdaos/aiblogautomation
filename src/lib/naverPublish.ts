@@ -191,31 +191,42 @@ export async function publishToNaver(
 
     // ── 4. 제목 입력 ─────────────────────────────────────────────────
     await step('제목입력', async () => {
-      // 새 셀렉터 우선, 이후 기존 셀렉터 폴백
       const titleSelectors = [
-        '.se-title-input',
-        '[placeholder="제목"]',
         '.se-title-text',
-        'input[class*="title"]',
-        'textarea[class*="title"]',
-        '[class*="se_title"] input',
-        '[class*="title_area"] input',
-        '[placeholder*="제목"]',
+        '.se-title-input',
+        '[data-placeholder="제목"]',
+        '[data-placeholder*="제목"]',
+        '.se-title [contenteditable="true"]',
+        '.se-title-component [contenteditable="true"]',
+        '[class*="title"][contenteditable="true"]',
+        '[class*="Title"][contenteditable="true"]',
       ]
 
+      // 탐색 대상: editorCtx + editorPage + 모든 프레임 FrameLocator
+      const ctxList: LocatorCtx[] = [editorCtx, editorPage]
+      for (const frame of editorPage.frames()) {
+        if (frame === editorPage.mainFrame()) continue
+        const src = frame.url()
+        if (!src) continue
+        try {
+          const pathname = new URL(src).pathname
+          const fl = editorPage.frameLocator(`iframe[src*="${pathname.split('/').pop() ?? ''}"]`)
+          ctxList.push(fl)
+        } catch { /* ignore */ }
+      }
+
       let titleEntered = false
+
+      // 1순위: 클래스/속성 셀렉터
       for (const sel of titleSelectors) {
-        for (const ctx of [editorCtx, editorPage] as LocatorCtx[]) {
+        for (const ctx of ctxList) {
           const el = ctx.locator(sel).first()
-          if (!await el.isVisible({ timeout: 1000 }).catch(() => false)) continue
+          if (!await el.isVisible({ timeout: 800 }).catch(() => false)) continue
           await el.click({ timeout: 3000 })
           await editorPage.waitForTimeout(300)
           const tag = await el.evaluate((n) => (n as HTMLElement).tagName.toLowerCase()).catch(() => 'div')
-          if (tag === 'input' || tag === 'textarea') {
-            await el.fill(title)
-          } else {
-            await editorPage.keyboard.type(title)
-          }
+          if (tag === 'input' || tag === 'textarea') await el.fill(title)
+          else await editorPage.keyboard.type(title)
           console.log(`[title] 셀렉터 성공: ${sel}`)
           titleEntered = true
           break
@@ -223,18 +234,54 @@ export async function publishToNaver(
         if (titleEntered) break
       }
 
+      // 2순위: 모든 컨텍스트에서 첫 번째 contenteditable 클릭
       if (!titleEntered) {
-        // 폴백: iframe 상단 좌표 클릭
-        const box = await editorPage.locator('iframe[src*="PostWriteForm"]').first().boundingBox().catch(() => null)
-        if (box) {
-          await editorPage.mouse.click(box.x + box.width / 2, box.y + 150)
+        const CE = '[contenteditable="true"]:not([aria-hidden="true"]):not([allow])'
+        for (const ctx of ctxList) {
+          const el = ctx.locator(CE).first()
+          if (!await el.isVisible({ timeout: 800 }).catch(() => false)) continue
+          await el.click({ timeout: 3000 })
           await editorPage.waitForTimeout(300)
           await editorPage.keyboard.type(title)
-          console.log('[title] 좌표 폴백으로 입력')
-        } else {
-          throw new Error('제목 입력 영역을 찾지 못했습니다.')
+          console.log('[title] 첫 번째 contenteditable 폴백으로 입력')
+          titleEntered = true
+          break
         }
       }
+
+      // 3순위: 프레임 직접 순회
+      if (!titleEntered) {
+        for (const frame of editorPage.frames()) {
+          const CE = '[contenteditable="true"]:not([aria-hidden="true"])'
+          const el = frame.locator(CE).first()
+          if (!await el.isVisible({ timeout: 800 }).catch(() => false)) continue
+          await el.click({ timeout: 3000 })
+          await editorPage.waitForTimeout(300)
+          await frame.locator(CE).first().type(title)
+          console.log(`[title] frame 직접 순회 폴백: ${frame.url()}`)
+          titleEntered = true
+          break
+        }
+      }
+
+      // 최종 폴백: 뷰포트 제목 영역 직접 클릭 (스크린샷에서 확인된 좌표)
+      if (!titleEntered) {
+        console.log('[title] 최종 좌표 폴백 시도')
+        const iframeBox = await editorPage.locator('iframe[src*="PostWriteForm"]').first().boundingBox().catch(() => null)
+        if (iframeBox) {
+          // iframe 내부 제목 영역: iframe 상단에서 약 100px
+          await editorPage.mouse.click(iframeBox.x + iframeBox.width / 2, iframeBox.y + 100)
+        } else {
+          // 메인 프레임 직접: 스크린샷 기준 제목은 y≈247
+          await editorPage.mouse.click(630, 247)
+        }
+        await editorPage.waitForTimeout(300)
+        await editorPage.keyboard.type(title)
+        console.log('[title] 좌표 클릭으로 입력 시도')
+        titleEntered = true
+      }
+
+      if (!titleEntered) throw new Error('제목 입력 영역을 찾지 못했습니다.')
 
       // 04-제목입력후.png
       await snap(editorPage, '제목입력후', 4)
