@@ -207,19 +207,23 @@ export async function publishToNaver(
         page.click('a[href*="PostWriteForm"], a:has-text("글쓰기"), button:has-text("글쓰기")', { timeout: 10000 }),
       ])
       if (newPage) {
-        await newPage.waitForLoadState('domcontentloaded')
+        // NID_AUT 자동 재인증 리다이렉트 완료까지 대기 (nid.naver.com → PostWriteForm)
+        await newPage.waitForURL(
+          url => !url.includes('nid.naver.com') && !url.includes('nidlogin'),
+          { timeout: 20000 }
+        ).catch(() => {})
         editorPage = newPage
       } else {
-        await page.waitForURL(/PostWriteForm|Redirect=Write/, { timeout: 10000 })
+        await page.waitForURL(/PostWriteForm|Redirect=Write/, { timeout: 15000 })
       }
     })
 
-    // ── 3. 에디터 로드 대기 (2초) ───────────────────────────────────
+    // ── 3. 에디터 로드 대기 ──────────────────────────────────────────
     await step('에디터로드대기', async () => {
-      await editorPage.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {})
-      await editorPage.waitForTimeout(2000)   // 글쓰기 페이지 로드 후 2초 대기
+      await editorPage.waitForLoadState('networkidle', { timeout: 20000 }).catch(() => {})
+      await editorPage.waitForTimeout(2000)
 
-      // 네이버 세션 만료 감지 — URL 기반 (클래스명은 에디터 페이지에도 존재해서 오탐 가능)
+      // 세션 만료 감지 — networkidle 완료 후에도 로그인 페이지면 진짜 만료
       const currentUrl = editorPage.url()
       const isLoginPage = currentUrl.includes('nid.naver.com') ||
                           currentUrl.includes('login.naver.com') ||
