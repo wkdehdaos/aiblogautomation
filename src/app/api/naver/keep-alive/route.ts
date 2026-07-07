@@ -28,15 +28,31 @@ export async function POST(req: NextRequest) {
       const context = await browser.newContext({ storageState })
       const page = await context.newPage()
 
-      await page.goto('https://blog.naver.com', { waitUntil: 'domcontentloaded', timeout: 20000 })
-      await page.waitForTimeout(2000)
+      // /me 는 로그인 필수 페이지 — 만료 시 nid.naver.com 으로 리다이렉트됨
+      // NID_AUT(30일 쿠키) 있으면 자동 재인증 후 /me 로 복귀
+      await page.goto('https://blog.naver.com/me', { waitUntil: 'domcontentloaded', timeout: 30000 })
+
+      // 자동 재인증(NID_AUT) 리다이렉트가 완료될 때까지 대기
+      await page.waitForURL(
+        url => !url.includes('nid.naver.com') && !url.includes('nidlogin'),
+        { timeout: 15000 }
+      ).catch(() => {})
+
+      await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {})
 
       const url = page.url()
       const isLoggedIn = !url.includes('nid.naver.com') && !url.includes('nidlogin')
 
       if (isLoggedIn) {
-        // 갱신된 쿠키를 DB에 저장
         const freshState = await context.storageState()
+
+        // NID_AUT(30일 세션) 없으면 경고 — keep-alive로 유지 불가
+        const hasNidAut = freshState.cookies?.some((c: { name: string }) => c.name === 'NID_AUT')
+        if (!hasNidAut) {
+          results.push({ userId: user.id, status: 'expired', detail: 'NID_AUT 없음 — 재연결 필요' })
+          continue
+        }
+
         const encrypted = encrypt(JSON.stringify(freshState))
         await prisma.user.update({
           where: { id: user.id },
