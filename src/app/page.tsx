@@ -870,9 +870,14 @@ export default function BlogFormPage() {
                   ? 'bg-green-50 text-green-700 ring-1 ring-green-200'
                   : 'bg-red-50 text-red-700 ring-1 ring-red-200'
               }`}>
-                {publishStatus.message}
+                <span>{publishStatus.message}</span>
                 {publishStatus.step && (
                   <span className="ml-2 text-xs opacity-70">(실패 단계: {publishStatus.step})</span>
+                )}
+                {publishStatus.sessionExpired && (
+                  <a href="/naver-connect" className="ml-3 underline font-semibold opacity-90 hover:opacity-100">
+                    네이버 연결하기 →
+                  </a>
                 )}
               </div>
             )}
