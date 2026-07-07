@@ -250,24 +250,9 @@ app.whenReady()
       }
       log('token=' + (token ? '있음' : '없음'))
 
-      // --test-input-token= 인자: input 화면 경유 IPC 테스트
-      const testArg = args.find(a => a.startsWith('--test-input-token='))
-      const testToken = testArg ? testArg.split('=')[1] : null
-
       setTimeout(() => {
         if (token) safeRunLogin(token)
-        else {
-          send('input')
-          if (testToken) {
-            setTimeout(() => {
-              log('테스트: executeJavaScript로 토큰 주입')
-              win.webContents.executeJavaScript(`
-                document.getElementById('token').value = ${JSON.stringify(testToken)};
-                document.getElementById('btn-start').click();
-              `).catch(e => log('executeJavaScript 오류: ' + e.message))
-            }, 1000)
-          }
-        }
+        else send('input')
       }, 300)
     })
   })
