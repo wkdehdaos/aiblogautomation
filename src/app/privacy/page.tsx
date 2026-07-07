@@ -86,7 +86,7 @@ export default function PrivacyPage() {
         <Card title="5. 개인정보 보호를 위한 기술적 조치">
           <ul className="space-y-2 text-sm text-gray-700">
             {[
-              '네이버 세션 정보는 서버에 암호화하여 저장합니다.',
+              '네이버 세션 정보는 AES-256-GCM 방식으로 암호화하여 서버에 저장합니다.',
               'HTTPS를 통해 데이터를 안전하게 전송합니다.',
               '세션 정보는 블로그 발행 기능 외 다른 목적으로 접근하지 않습니다.',
             ].map((item) => (
