@@ -685,6 +685,7 @@ export async function publishToNaver(
       if (!bodyText.trim()) {
         console.warn('[body] 경고: bodyVerified=true이나 getBodyText 빈값 — 삽입됐을 수 있어 발행 계속')
       }
+      outerBodyVerified = bodyVerified
     })
 
     // ── 7. 위치 지도 삽입 ────────────────────────────────────────────
