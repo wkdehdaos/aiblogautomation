@@ -839,7 +839,7 @@ export async function publishToNaver(
         console.log('[발행] 전체 버튼:', JSON.stringify(allBtns.filter(b => b.vis).slice(0, 15)))
 
         await snap(editorPage, '발행버튼없음', stepIndex + 1)
-        throw new Error('발행 버튼을 찾지 못했습니다.')
+        throw new Error(`발행 버튼을 찾지 못했습니다. 버튼목록: ${JSON.stringify(allBtns.filter(b => b.vis).slice(0, 10))}`)
       }
 
       // 발행 패널이 열릴 때까지 클릭 재시도 (최대 3회)
