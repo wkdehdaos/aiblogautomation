@@ -2,6 +2,7 @@ import path from 'path'
 import fs from 'fs'
 import { publishToNaver } from '../src/lib/naverPublish'
 
+// .env.local 로드
 const envPath = path.resolve(process.cwd(), '.env.local')
 if (fs.existsSync(envPath)) {
   for (const line of fs.readFileSync(envPath, 'utf-8').split('\n')) {
@@ -21,27 +22,45 @@ async function main() {
   if (!fs.existsSync(SESSION_PATH)) { console.error('naver-session.json 없음'); process.exit(1) }
   const sessionData = JSON.parse(fs.readFileSync(SESSION_PATH, 'utf-8')) as Record<string, unknown>
 
-  // 실제 AI 생성 포맷과 동일한 복잡한 HTML
-  const title = `[본문입력 수정 테스트] ${new Date().toLocaleString('ko-KR')}`
+  // 테스트 이미지 2장 (debug-screenshots에서 가져옴)
+  const img1 = path.resolve(process.cwd(), 'debug-screenshots/04-제목입력후.png')
+  const img2 = path.resolve(process.cwd(), 'debug-screenshots/05-본문입력후.png')
+
+  if (!fs.existsSync(img1) || !fs.existsSync(img2)) {
+    console.error('테스트 이미지 없음. 먼저 일반 발행 테스트를 실행해 debug-screenshots 생성하세요.')
+    process.exit(1)
+  }
+
+  const title = `[이미지 포함 발행 테스트] ${new Date().toLocaleString('ko-KR')}`
+
+  // 실제 AI 생성 포맷 — <!--IMAGE_1-->, <!--IMAGE_2--> 마커 포함
   const content = `<p style="font-size:28px;text-align:center;margin:0 0 16px">👋</p>
 
-<p style="line-height:1.9;font-size:15px;color:#333">안녕하세요! 오늘은 자동 발행 테스트 글을 작성해봤습니다. 본문 입력이 제대로 되는지 확인하는 용도입니다.</p>
+<p style="line-height:1.9;font-size:15px;color:#333">안녕하세요! 이미지 포함 자동 발행 테스트입니다. 이미지가 두 장 포함된 글이 정상적으로 발행되는지 확인합니다.</p>
 
-<h2 style="font-size:17px;font-weight:700;color:#222;margin:32px 0 10px">첫 번째 섹션</h2>
-<p style="line-height:1.9;font-size:15px;color:#333">이 섹션에는 본문 내용이 들어갑니다. inline style이 포함된 HTML이 정상적으로 에디터에 입력되는지 검증합니다.</p>
+<h2 style="font-size:17px;font-weight:700;color:#222;margin:32px 0 10px">첫 번째 이미지</h2>
+<p style="line-height:1.9;font-size:15px;color:#333">아래에 첫 번째 이미지가 들어갑니다. 에디터에서 이미지 업로드 후 본문과 어울리게 배치됩니다.</p>
 
-<h2 style="font-size:17px;font-weight:700;color:#222;margin:32px 0 10px">방문 정보</h2>
+<!--IMAGE_1-->
+
+<h2 style="font-size:17px;font-weight:700;color:#222;margin:32px 0 10px">두 번째 이미지</h2>
+<p style="line-height:1.9;font-size:15px;color:#333">두 번째 이미지도 정상적으로 업로드되는지 확인합니다. 네이버 CDN에 업로드 후 본문에 삽입됩니다.</p>
+
+<!--IMAGE_2-->
+
+<h2 style="font-size:17px;font-weight:700;color:#222;margin:32px 0 10px">마무리</h2>
 <div style="background:#f7f8fc;border-radius:8px;padding:20px 24px;margin:12px 0">
   <ul style="margin:0;padding-left:4px;list-style:none;font-size:14px;color:#444;line-height:2.2">
-    <li><strong>테스트 항목</strong> &nbsp; 본문 HTML 삽입 검증</li>
+    <li><strong>테스트 항목</strong> &nbsp; 이미지 2장 포함 발행</li>
     <li><strong>발행 시각</strong> &nbsp; ${new Date().toISOString()}</li>
   </ul>
 </div>`
 
   console.log('제목:', title)
-  console.log('발행 시작 (복잡한 HTML)...\n')
+  console.log('이미지:', [img1, img2].map(p => path.basename(p)))
+  console.log('발행 시작...\n')
 
-  const result = await publishToNaver(title, content, [], undefined, undefined, sessionData)
+  const result = await publishToNaver(title, content, [img1, img2], undefined, undefined, sessionData)
 
   if (result.success) {
     console.log('\n✅ 발행 성공:', result.url)
