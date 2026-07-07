@@ -5,8 +5,8 @@ export const metadata: Metadata = {
   title: '개인정보처리방침 | AI 블로그 자동 작성',
 }
 
-const CONTACT_EMAIL = 'jjangda895@gmail.com'
-const EFFECTIVE_DATE = '2025년 1월 1일'
+const CONTACT_EMAIL = '[이메일]'
+const EFFECTIVE_DATE = '2026년 7월 6일'
 
 export default function PrivacyPage() {
   return (
