@@ -320,24 +320,27 @@ export async function publishToNaver(
 
     // ── 5. 본문 + 이미지 입력 ────────────────────────────────────────
     await step('본문및이미지입력', async () => {
-      const CE = '[contenteditable="true"]:not([aria-hidden="true"])'
+      // PostWriteForm 프레임 (execCommand·클립보드용)
+      const editorFrame = editorPage.frames().find(f => f.url().includes('PostWriteForm'))
+        ?? editorPage.mainFrame()
 
-      // 에디터 포커스 — step4 Enter 후 이미 본문에 있을 수 있으므로
-      // isVisible 짧게 확인 후 클릭, 안 되면 그냥 진행
-      for (const ctx of [editorCtx, editorPage] as LocatorCtx[]) {
-        const el = ctx.locator(CE).first()
-        if (await el.isVisible({ timeout: 3000 }).catch(() => false)) {
-          await el.click({ timeout: 5000 }).catch(() => {})
-          break
-        }
-      }
-      // 프레임 직접 순회
-      if (editorPage.frames().length > 1) {
-        for (const frame of editorPage.frames()) {
-          if (!frame.url()) continue
-          const el = frame.locator(CE).first()
-          if (await el.isVisible({ timeout: 1000 }).catch(() => false)) {
-            await el.click({ timeout: 3000 }).catch(() => {})
+      // ── 본문 contenteditable 포커스 (제목 제외) ──────────────────
+      // step4 Enter 후 이미 본문에 있을 수 있지만, 명시적으로 본문을 타겟
+      const bodyFocused = await editorFrame.evaluate((js: string) => {
+        // eslint-disable-next-line no-eval
+        const el = eval(js) as HTMLElement | null
+        if (!el) return false
+        el.focus()
+        return true
+      }, FIND_BODY_CE_JS).catch(() => false)
+
+      if (!bodyFocused) {
+        // 폴백: 프레임 locator로 두 번째 contenteditable 클릭
+        for (const frame of [editorFrame, ...editorPage.frames()]) {
+          const els = await frame.locator('[contenteditable="true"]:not([aria-hidden])').all().catch(() => [] as Locator[])
+          const bodyEl = els[1] ?? els[0]  // 두 번째(본문) 우선, 없으면 첫 번째
+          if (bodyEl && await bodyEl.isVisible({ timeout: 800 }).catch(() => false)) {
+            await bodyEl.click({ timeout: 3000 }).catch(() => {})
             break
           }
         }
@@ -358,26 +361,24 @@ export async function publishToNaver(
       }
       if (sections.length === 0) sections.push({ type: 'html', html: content })
 
-      // PostWriteForm 프레임 (클립보드·execCommand용)
-      const editorFrame = editorPage.frames().find(f => f.url().includes('PostWriteForm'))
-        ?? editorPage.mainFrame()
-
       let bodyVerified = false
 
       for (const section of sections) {
         if (section.type === 'html') {
-          // 1순위: execCommand insertHTML (프레임 내에서 직접 실행 — 가장 안정적)
-          const inserted = await editorFrame.evaluate((html: string) => {
-            const el = document.querySelector<HTMLElement>('[contenteditable="true"]:not([aria-hidden])')
+          // 1순위: execCommand insertHTML — 본문 CE를 명시적으로 지정
+          const inserted = await editorFrame.evaluate((args: { html: string; js: string }) => {
+            // eslint-disable-next-line no-eval
+            const el = eval(args.js) as HTMLElement | null
             if (!el) return false
             el.focus()
-            return document.execCommand('insertHTML', false, html)
-          }, section.html).catch(() => false)
+            return document.execCommand('insertHTML', false, args.html)
+          }, { html: section.html, js: FIND_BODY_CE_JS }).catch(() => false)
 
           if (inserted) {
             await editorPage.waitForTimeout(600)
+            bodyVerified = true
           } else {
-            // 2순위: 클립보드 → Ctrl+V (프레임 컨텍스트에서 write)
+            // 2순위: 클립보드 → Ctrl+V
             const canClipboard = await editorFrame.evaluate(async (html: string) => {
               try {
                 await navigator.clipboard.write([
@@ -390,20 +391,32 @@ export async function publishToNaver(
             if (canClipboard) {
               await editorPage.keyboard.press('Control+V')
               await editorPage.waitForTimeout(900)
+              bodyVerified = true
             } else {
-              // 3순위: 다른 프레임 모두 시도
+              // 3순위: 다른 프레임에서 execCommand
               for (const frame of editorPage.frames()) {
-                const ok = await frame.evaluate((html: string) => {
-                  const el = document.querySelector<HTMLElement>('[contenteditable="true"]:not([aria-hidden])')
+                const ok = await frame.evaluate((args: { html: string; js: string }) => {
+                  // eslint-disable-next-line no-eval
+                  const el = eval(args.js) as HTMLElement | null
                   if (!el) return false
                   el.focus()
-                  return document.execCommand('insertHTML', false, html)
-                }, section.html).catch(() => false)
-                if (ok) { await editorPage.waitForTimeout(600); break }
+                  return document.execCommand('insertHTML', false, args.html)
+                }, { html: section.html, js: FIND_BODY_CE_JS }).catch(() => false)
+                if (ok) { await editorPage.waitForTimeout(600); bodyVerified = true; break }
+              }
+
+              // 4순위(보장 폴백): 플레인 텍스트 keyboard.type
+              if (!bodyVerified) {
+                console.log('[body] 모든 HTML 삽입 실패 → keyboard.type 폴백')
+                const plain = htmlToPlain(section.html)
+                if (plain) {
+                  await editorPage.keyboard.type(plain, { delay: 8 })
+                  await editorPage.waitForTimeout(400)
+                  bodyVerified = true
+                }
               }
             }
           }
-          bodyVerified = true
 
         } else {
           // ── 이미지 삽입 ───────────────────────────────────────────────
