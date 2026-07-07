@@ -209,7 +209,7 @@ export async function publishToNaver(
       if (newPage) {
         // NID_AUT 자동 재인증 리다이렉트 완료까지 대기 (nid.naver.com → PostWriteForm)
         await newPage.waitForURL(
-          url => !url.includes('nid.naver.com') && !url.includes('nidlogin'),
+          url => !url.href.includes('nid.naver.com') && !url.href.includes('nidlogin'),
           { timeout: 20000 }
         ).catch(() => {})
         editorPage = newPage
