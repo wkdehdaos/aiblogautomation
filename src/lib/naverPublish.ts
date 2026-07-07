@@ -378,19 +378,39 @@ export async function publishToNaver(
 
       let bodyVerified = false
 
+      // 실제로 본문 CE에 텍스트가 들어갔는지 확인 (execCommand는 headless에서 true 반환 후 미삽입 가능)
+      const checkBodyHasText = async (): Promise<boolean> => {
+        for (const frame of [editorFrame, ...editorPage.frames()]) {
+          const hasText = await frame.evaluate((js: string) => {
+            // eslint-disable-next-line no-eval
+            const el = eval(js) as HTMLElement | null
+            return !!(el?.textContent?.trim())
+          }, FIND_BODY_CE_JS).catch(() => false)
+          if (hasText) return true
+        }
+        return false
+      }
+
       for (const section of sections) {
         if (section.type === 'html') {
-          // 1순위: execCommand insertHTML — 본문 CE를 명시적으로 지정
-          const inserted = await editorFrame.evaluate((args: { html: string; js: string }) => {
+          // 1순위: execCommand insertHTML (선택 영역 명시 + 본문 CE 지정)
+          await editorFrame.evaluate((args: { html: string; js: string }) => {
             // eslint-disable-next-line no-eval
             const el = eval(args.js) as HTMLElement | null
             if (!el) return false
             el.focus()
+            const range = document.createRange()
+            range.selectNodeContents(el)
+            range.collapse(false)
+            const sel = window.getSelection()
+            sel?.removeAllRanges()
+            sel?.addRange(range)
             return document.execCommand('insertHTML', false, args.html)
           }, { html: section.html, js: FIND_BODY_CE_JS }).catch(() => false)
+          await editorPage.waitForTimeout(700)
 
-          if (inserted) {
-            await editorPage.waitForTimeout(600)
+          if (await checkBodyHasText()) {
+            console.log('[body] execCommand 삽입 성공')
             bodyVerified = true
           } else {
             // 2순위: 클립보드 → Ctrl+V
@@ -406,21 +426,32 @@ export async function publishToNaver(
             if (canClipboard) {
               await editorPage.keyboard.press('Control+V')
               await editorPage.waitForTimeout(900)
+            }
+
+            if (await checkBodyHasText()) {
+              console.log('[body] 클립보드 삽입 성공')
               bodyVerified = true
             } else {
               // 3순위: 다른 프레임에서 execCommand
               for (const frame of editorPage.frames()) {
-                const ok = await frame.evaluate((args: { html: string; js: string }) => {
+                await frame.evaluate((args: { html: string; js: string }) => {
                   // eslint-disable-next-line no-eval
                   const el = eval(args.js) as HTMLElement | null
                   if (!el) return false
                   el.focus()
+                  const range = document.createRange()
+                  range.selectNodeContents(el)
+                  range.collapse(false)
+                  const sel = window.getSelection()
+                  sel?.removeAllRanges()
+                  sel?.addRange(range)
                   return document.execCommand('insertHTML', false, args.html)
                 }, { html: section.html, js: FIND_BODY_CE_JS }).catch(() => false)
-                if (ok) { await editorPage.waitForTimeout(600); bodyVerified = true; break }
+                await editorPage.waitForTimeout(600)
+                if (await checkBodyHasText()) { bodyVerified = true; break }
               }
 
-              // 4순위(보장 폴백): 플레인 텍스트 keyboard.type
+              // 4순위(보장 폴백): keyboard.type — execCommand가 headless에서 silent fail해도 항상 동작
               if (!bodyVerified) {
                 console.log('[body] 모든 HTML 삽입 실패 → keyboard.type 폴백')
                 const plain = htmlToPlain(section.html)
