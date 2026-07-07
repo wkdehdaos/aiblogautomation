@@ -788,6 +788,9 @@ export async function publishToNaver(
         console.log('  [발행] 현재 버튼 목록:', JSON.stringify(btns.slice(0, 8)))
       }
 
+      // 발행 버튼 탐색 전 스냅 (headless 디버그)
+      await snap(editorPage, '발행버튼탐색전', stepIndex + 1)
+
       // 발행 버튼 탐색 — 클래스명·텍스트 모두 시도
       const publishSelectors = [
         'button[class*="publish_btn"]:not([class*="reserve"])',
@@ -814,8 +817,27 @@ export async function publishToNaver(
           }
         }
       }
+      // editorPage 메인 컨텍스트 직접 탐색 (headless에서 frame 스코프 벗어난 경우)
+      if (!publishBtn) {
+        for (const sel of publishSelectors) {
+          const btn = editorPage.locator(sel).first()
+          if (await btn.isVisible({ timeout: 1500 }).catch(() => false)) {
+            publishBtn = btn; break
+          }
+        }
+      }
 
       if (!publishBtn) {
+        // 모든 버튼 목록 상세 로그 (headless 디버그)
+        const allBtns = await editorPage.evaluate(() =>
+          Array.from(document.querySelectorAll('button')).map(b => ({
+            text: b.textContent?.trim().slice(0, 30),
+            cls: b.className.slice(0, 60),
+            vis: (b as HTMLElement).offsetParent !== null,
+          }))
+        ).catch(() => [])
+        console.log('[발행] 전체 버튼:', JSON.stringify(allBtns.filter(b => b.vis).slice(0, 15)))
+
         await snap(editorPage, '발행버튼없음', stepIndex + 1)
         throw new Error('발행 버튼을 찾지 못했습니다.')
       }
