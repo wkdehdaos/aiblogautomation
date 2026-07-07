@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
 
       // 자동 재인증(NID_AUT) 리다이렉트가 완료될 때까지 대기
       await page.waitForURL(
-        url => !url.includes('nid.naver.com') && !url.includes('nidlogin'),
+        url => !url.href.includes('nid.naver.com') && !url.href.includes('nidlogin'),
         { timeout: 15000 }
       ).catch(() => {})
 
