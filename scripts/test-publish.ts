@@ -22,12 +22,12 @@ async function main() {
   if (!fs.existsSync(SESSION_PATH)) { console.error('naver-session.json 없음'); process.exit(1) }
   const sessionData = JSON.parse(fs.readFileSync(SESSION_PATH, 'utf-8')) as Record<string, unknown>
 
-  // 테스트 이미지 2장 (debug-screenshots에서 가져옴)
-  const img1 = path.resolve(process.cwd(), 'debug-screenshots/04-제목입력후.png')
-  const img2 = path.resolve(process.cwd(), 'debug-screenshots/05-본문입력후.png')
+  // 테스트 이미지 2장
+  const img1 = path.resolve(process.cwd(), 'test-img1.jpg')
+  const img2 = path.resolve(process.cwd(), 'test-img2.jpg')
 
   if (!fs.existsSync(img1) || !fs.existsSync(img2)) {
-    console.error('테스트 이미지 없음. 먼저 일반 발행 테스트를 실행해 debug-screenshots 생성하세요.')
+    console.error('테스트 이미지 없음:', img1, img2)
     process.exit(1)
   }
 
