@@ -2,6 +2,8 @@ import Anthropic from '@anthropic-ai/sdk'
 import { NextRequest } from 'next/server'
 import sharp from 'sharp'
 import { getSession } from '@/lib/auth'
+import { prisma } from '@/lib/db'
+import { getPostLimit, isNewMonth } from '@/lib/plans'
 
 const LENGTH_MAP: Record<string, string> = {
   short: '500자 이내',
