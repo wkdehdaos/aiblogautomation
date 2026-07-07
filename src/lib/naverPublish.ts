@@ -427,9 +427,17 @@ export async function publishToNaver(
           await editorPage.keyboard.press('Enter')
           await editorPage.waitForTimeout(300)
 
-          // 에디터에 포커스
-          const editorEl = editorFrame.locator('[contenteditable="true"]:not([aria-hidden])').first()
-          await editorEl.click({ timeout: 3000 }).catch(() => {})
+          // 에디터에 포커스 (본문 CE — 제목 제외)
+          await editorFrame.evaluate((js: string) => {
+            // eslint-disable-next-line no-eval
+            const el = eval(js) as HTMLElement | null
+            el?.focus()
+          }, FIND_BODY_CE_JS).catch(() => {})
+          const editorEl = editorFrame.locator('[contenteditable="true"]:not([aria-hidden])').nth(1)
+          await editorEl.click({ timeout: 3000 }).catch(async () => {
+            // nth(1) 없으면 first()
+            await editorFrame.locator('[contenteditable="true"]:not([aria-hidden])').first().click({ timeout: 2000 }).catch(() => {})
+          })
           await editorPage.waitForTimeout(200)
 
           let uploaded = false
