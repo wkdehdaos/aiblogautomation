@@ -87,10 +87,6 @@ function createWindow() {
 
   win.on('closed', () => { log('창 닫힘'); win = null })
 
-  win.webContents.on('console-message', (_, level, msg) => {
-    log('renderer console[' + level + ']: ' + msg)
-  })
-
   win.webContents.on('did-fail-load', (_, code, desc) => {
     log('did-fail-load code=' + code + ' desc=' + desc)
     writeError('페이지 로드 실패 ' + code + ': ' + desc)
