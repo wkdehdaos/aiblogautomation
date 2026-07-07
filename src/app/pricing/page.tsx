@@ -102,7 +102,7 @@ export default function PricingPage() {
         </div>
 
         {/* 플랜 카드 */}
-        <div className="grid gap-4 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           {(Object.entries(PLANS) as [Plan, typeof PLANS[Plan]][]).map(([planKey, info]) => {
             const isCurrent = currentPlan === planKey
             const isPro = planKey === 'pro'
