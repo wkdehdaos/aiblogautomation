@@ -226,6 +226,10 @@ export async function publishToNaver(
 
     // ── 4. 제목 입력 ─────────────────────────────────────────────────
     await step('제목입력', async () => {
+      // 팝업이 아직 열려있으면 다시 닫기 (타이밍 이슈 대비)
+      await dismissDraftModal(editorPage)
+      await editorPage.waitForTimeout(300)
+
       const titleSelectors = [
         '.se-title-text',
         '.se-title-input',
