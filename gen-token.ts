@@ -3,7 +3,7 @@ import { PrismaLibSql } from '@prisma/adapter-libsql'
 import crypto from 'crypto'
 
 // prisma CLI가 사용하는 root dev.db 경로 사용
-const dbUrl = process.env.DATABASE_URL ?? 'file:C:/Users/a0106/ai-blog/dev.db'
+const dbUrl = process.env.DATABASE_URL ?? 'file:C:/Users/a0106/ai-blog/prisma/dev.db'
 const adapter = new PrismaLibSql({ url: dbUrl })
 const prisma = new PrismaClient({ adapter } as never)
 
