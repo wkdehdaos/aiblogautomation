@@ -1,0 +1,16 @@
+name: Naver Session Keep-Alive
+
+on:
+  schedule:
+    - cron: '0 */2 * * *'   # 2시간마다 실행
+  workflow_dispatch:          # 수동 실행 가능
+
+jobs:
+  keepalive:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping keep-alive endpoint
+        run: |
+          curl -sf -X POST \
+            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" \
+            https://aiblogautomation-production.up.railway.app/api/naver/keep-alive
