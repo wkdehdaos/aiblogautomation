@@ -454,6 +454,19 @@ export async function publishToNaver(
               // 4순위(보장 폴백): keyboard.type — execCommand가 headless에서 silent fail해도 항상 동작
               if (!bodyVerified) {
                 console.log('[body] 모든 HTML 삽입 실패 → keyboard.type 폴백')
+                // 재포커스: iframe 내 body CE 클릭 (focus가 유실됐을 수 있음)
+                const bEl = editorFrame.locator('[contenteditable="true"]:not([aria-hidden])').nth(1)
+                const bVisible = await bEl.isVisible({ timeout: 1000 }).catch(() => false)
+                if (bVisible) {
+                  await bEl.click({ timeout: 2000 }).catch(() => {})
+                } else {
+                  await editorFrame.evaluate((js: string) => {
+                    // eslint-disable-next-line no-eval
+                    const el = eval(js) as HTMLElement | null
+                    el?.focus()
+                  }, FIND_BODY_CE_JS).catch(() => {})
+                }
+                await editorPage.waitForTimeout(300)
                 const plain = htmlToPlain(section.html)
                 if (plain) {
                   await editorPage.keyboard.type(plain, { delay: 8 })
