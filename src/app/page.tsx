@@ -983,9 +983,9 @@ export default function BlogFormPage() {
                         data.error?.includes('로그인') ||
                         data.lastStep === '세션 로드'
                       const message = isSessionExpired
-                        ? '세션이 만료됐습니다. naver-session.json을 다시 업로드해주세요.'
+                        ? '네이버 세션이 만료됐습니다. 네이버 계정을 다시 연결해주세요.'
                         : (data.error ?? '발행 실패')
-                      setPublishStatus({ type: 'error', message, step: data.lastStep })
+                      setPublishStatus({ type: 'error', message, step: data.lastStep, sessionExpired: isSessionExpired })
                       if (isSessionExpired) setNaverConnected(false)
                     }
                   } catch (err) {
