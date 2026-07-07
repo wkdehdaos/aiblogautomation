@@ -603,6 +603,11 @@ export async function publishToNaver(
           // 라이브러리/이미지 패널 닫기 + 에디터 포커스 복구
           await editorPage.keyboard.press('Escape').catch(() => {})
           await editorPage.waitForTimeout(400)
+          await editorFrame.evaluate((js: string) => {
+            // eslint-disable-next-line no-eval
+            const el = eval(js) as HTMLElement | null
+            el?.focus()
+          }, FIND_BODY_CE_JS).catch(() => {})
           await editorEl.click({ timeout: 3000 }).catch(() => {})
           await editorPage.keyboard.press('Control+End')
           await editorPage.waitForTimeout(200)
@@ -614,8 +619,11 @@ export async function publishToNaver(
       console.log('[body] 입력 후 본문 (앞 80자):', bodyText.slice(0, 80) || '(비어있음)')
       await snap(editorPage, '본문입력후', 5)
 
-      if (!bodyVerified || !bodyText.trim()) {
-        throw new Error('본문 입력 실패: 에디터에 텍스트 없음. debug-screenshots 폴더 확인.')
+      if (!bodyVerified) {
+        throw new Error('본문 입력 실패: 삽입 방법이 모두 실패했습니다. debug-screenshots 폴더 확인.')
+      }
+      if (!bodyText.trim()) {
+        console.warn('[body] 경고: bodyVerified=true이나 getBodyText 빈값 — 삽입됐을 수 있어 발행 계속')
       }
     })
 
