@@ -90,27 +90,51 @@ async function findToolbarBtn(ctx: LocatorCtx, ...selectors: string[]): Promise<
   return null
 }
 
-// 모든 프레임을 순회해서 본문 텍스트를 읽음
-async function getBodyText(editorPage: Page): Promise<string> {
-  // 1) 메인 페이지 컨텍스트
-  const main = await editorPage.evaluate(() =>
-    document.querySelector('.se-content')?.textContent?.trim() ?? ''
-  ).catch(() => '')
-  if (main) return main
+// HTML → 줄바꿈 보존 플레인 텍스트 변환 (keyboard.type 폴백용)
+function htmlToPlain(html: string): string {
+  return html
+    .replace(/<!--IMAGE_\d+-->/g, '')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/(?:p|h[1-6]|div|li)>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+}
 
-  // 2) iframe 순회
-  for (const frame of editorPage.frames()) {
+// 프레임에서 본문(제목 제외) contenteditable 찾는 JS 코드 (evaluate 주입용)
+const FIND_BODY_CE_JS = `
+  (function() {
+    var all = Array.from(document.querySelectorAll('[contenteditable="true"]:not([aria-hidden])'));
+    var body = all.find(function(el) {
+      return !el.closest('.se-title, [class*="seTitle"], [class*="title-text"], [class*="title_text"]');
+    });
+    return body || all[all.length - 1] || all[0] || null;
+  })()
+`
+
+// 본문 텍스트 읽기 — 제목 요소 제외
+async function getBodyText(editorPage: Page): Promise<string> {
+  const bodySelectors = [
+    '.se-content',
+    '.se-main-container [contenteditable="true"]:not(.se-title-text)',
+    '.se-document [contenteditable="true"]',
+  ]
+
+  for (const frame of [editorPage.mainFrame(), ...editorPage.frames()]) {
+    // 1) 본문 특화 셀렉터
+    for (const sel of bodySelectors) {
+      const text = await frame.evaluate((s: string) =>
+        document.querySelector(s)?.textContent?.trim() ?? ''
+      , sel).catch(() => '')
+      if (text) return text
+    }
+    // 2) 제목 제외 첫 번째 contenteditable
     const text = await frame.evaluate(() => {
-      const sel = [
-        '.se-content',
-        '.se-main-container [contenteditable="true"]',
-        '[contenteditable="true"]',
-      ]
-      for (const s of sel) {
-        const el = document.querySelector(s)
-        if (el?.textContent?.trim()) return el.textContent.trim()
-      }
-      return ''
+      const all = Array.from(document.querySelectorAll<HTMLElement>('[contenteditable="true"]:not([aria-hidden])'))
+      const body = all.find(el => !el.closest('.se-title, [class*="seTitle"], [class*="title-text"], [class*="title_text"]'))
+        ?? all[all.length - 1]
+      return body?.textContent?.trim() ?? ''
     }).catch(() => '')
     if (text) return text
   }
