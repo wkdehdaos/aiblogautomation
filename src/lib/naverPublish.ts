@@ -219,12 +219,11 @@ export async function publishToNaver(
       await editorPage.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {})
       await editorPage.waitForTimeout(2000)   // 글쓰기 페이지 로드 후 2초 대기
 
-      // 네이버 세션 만료 감지 (로그인 버튼 노출 = 세션 무효)
-      const isLoginPage = await editorPage.evaluate(() =>
-        !!(document.querySelector('.btn_login, #id_login_btn, [class*="btn_login"]') ||
-           document.title.includes('로그인') ||
-           window.location.href.includes('nid.naver.com/nidlogin'))
-      ).catch(() => false)
+      // 네이버 세션 만료 감지 — URL 기반 (클래스명은 에디터 페이지에도 존재해서 오탐 가능)
+      const currentUrl = editorPage.url()
+      const isLoginPage = currentUrl.includes('nid.naver.com') ||
+                          currentUrl.includes('login.naver.com') ||
+                          currentUrl.includes('nidlogin')
       if (isLoginPage) {
         throw new Error('네이버 세션이 만료됐습니다. 네이버 계정을 다시 연결해주세요.')
       }
