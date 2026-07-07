@@ -63,6 +63,25 @@ export async function POST(req: NextRequest) {
     return Response.json({ error: 'ANTHROPIC_API_KEY가 설정되지 않았습니다.' }, { status: 500 })
   }
 
+  // 플랜별 생성 횟수 체크
+  let user = await prisma.user.findUnique({ where: { id: session.userId } })
+  if (!user) return Response.json({ error: '사용자를 찾을 수 없습니다.' }, { status: 404 })
+
+  if (isNewMonth(user.postCountResetAt)) {
+    user = await prisma.user.update({
+      where: { id: session.userId },
+      data: { postCount: 0, postCountResetAt: new Date() },
+    })
+  }
+
+  const limit = getPostLimit(user.plan)
+  if (user.postCount >= limit) {
+    return Response.json(
+      { error: `이번 달 생성 한도(${limit}회)를 초과했습니다. 플랜을 업그레이드해주세요.`, limitExceeded: true },
+      { status: 429 }
+    )
+  }
+
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
   try {
