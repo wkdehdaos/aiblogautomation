@@ -264,10 +264,10 @@ export default function NaverConnectPage() {
               프로그램 실행 후 토큰 붙여넣기
             </p>
             <div className="rounded-xl bg-slate-50 p-4 ring-1 ring-slate-200 text-sm text-slate-600 space-y-1.5">
-              <p>1. <code className="rounded bg-slate-200 px-1.5 text-xs font-mono">naver-login.exe</code> 실행</p>
-              <p>2. 토큰 붙여넣기 후 Enter</p>
+              <p>1. 설치된 <code className="rounded bg-slate-200 px-1.5 text-xs font-mono">네이버 연결</code> 프로그램 실행</p>
+              <p>2. 위에서 복사한 토큰 붙여넣기 후 시작</p>
               <p>3. 열리는 브라우저에서 네이버 로그인</p>
-              <p>4. 자동으로 연결 완료</p>
+              <p>4. 로그인 완료 시 자동으로 연결됨</p>
             </div>
 
             {polling ? (
