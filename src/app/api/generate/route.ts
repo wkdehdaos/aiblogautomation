@@ -208,6 +208,12 @@ export async function POST(req: NextRequest) {
     }
 
     const { title, content } = toolUse.input as { title: string; content: string }
+
+    await prisma.user.update({
+      where: { id: session.userId },
+      data: { postCount: { increment: 1 } },
+    })
+
     return Response.json({ title, content, successIndices })
   } catch (err) {
     console.error('[generate] error:', err)
