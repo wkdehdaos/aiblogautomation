@@ -13,10 +13,16 @@ model User {
   password    String
   name        String?
   naverBlogId           String?
-  naverSession          String?   // AES-256-GCM 암호화 저장
+  naverSession          String?
   sessionUploadedAt     DateTime?
-  uploadToken           String?   // exe용 일회성 토큰
+  uploadToken           String?
   uploadTokenExpiresAt  DateTime?
+  plan                  String    @default("free")
+  billingKey            String?
+  billingCustomerKey    String?
+  planExpiresAt         DateTime?
+  postCount             Int       @default(0)
+  postCountResetAt      DateTime  @default(now())
   createdAt         DateTime  @default(now())
   updatedAt   DateTime    @updatedAt
   posts       BlogPost[]
