@@ -150,6 +150,15 @@ async function runLogin(token) {
   const page = await context.newPage()
   await page.goto('https://nid.naver.com/nidlogin.login')
   log('네이버 로그인 페이지 열림')
+
+  // "로그인 상태 유지" 자동 체크 — 장기 세션 쿠키 발급 (30일)
+  await page.waitForLoadState('domcontentloaded').catch(() => {})
+  await page.evaluate(() => {
+    const keep = document.querySelector('#keep_login_check, #stay_signed_in, [name="keepLogin"]')
+    if (keep && !keep.checked) keep.click()
+  }).catch(() => {})
+  log('로그인 상태 유지 체크 시도')
+
   send('loading', '네이버 로그인 중...\n브라우저에서 로그인해주세요.')
 
   let done = false
