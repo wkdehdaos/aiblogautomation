@@ -203,7 +203,7 @@ export default function NaverConnectPage() {
               <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-indigo-500 text-xs font-bold text-white">1</span>
               프로그램 다운로드
             </p>
-            <a href="https://github.com/wkdehdaos/aiblogautomation/releases/download/v1.0.2/naver-login-setup.exe"
+            <a href="https://github.com/wkdehdaos/aiblogautomation/releases/download/v1.0.3/naver-login-setup.exe"
               download="naver-login-setup.exe"
               className="flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-500 py-3 text-sm font-semibold text-white transition hover:bg-indigo-600 active:scale-[0.98]">
               <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
