@@ -9,6 +9,13 @@ export default function Footer() {
         </p>
         <div className="flex items-center gap-4">
           <Link
+            href="/pricing"
+            className="text-xs text-gray-400 hover:text-indigo-500 transition"
+          >
+            요금제
+          </Link>
+          <span className="text-gray-200">|</span>
+          <Link
             href="/privacy"
             className="text-xs text-gray-400 hover:text-indigo-500 transition"
           >
