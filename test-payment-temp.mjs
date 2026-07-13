@@ -7,6 +7,9 @@ const browser = await chromium.launch({ headless: false, slowMo: 500 })
 const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } })
 const page = await ctx.newPage()
 
+page.on('console', msg => console.log(`[browser ${msg.type()}]`, msg.text()))
+page.on('pageerror', err => console.error('[page error]', err.message))
+
 const ss = (name) => page.screenshot({
   path: `${SCRATCHPAD}/${name}.png`,
   fullPage: true
