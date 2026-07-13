@@ -29,8 +29,8 @@ try {
   await page.goto(`${BASE}/login`, { waitUntil: 'networkidle' })
   await ss('prod-02-login')
 
-  await page.fill('input[type="email"]', 'test@test.com')
-  await page.fill('input[type="password"]', 'test1234')
+  await page.fill('input[type="email"]', 'a01067709308@gmail.com')
+  await page.fill('input[type="password"]', 'sosjbw4239@@')
   await page.click('button[type="submit"]')
   await page.waitForTimeout(3000)
   await ss('prod-03-after-login')
