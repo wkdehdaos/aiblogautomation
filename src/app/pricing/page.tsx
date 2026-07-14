@@ -184,7 +184,7 @@ export default function PricingPage() {
                         </svg>
                         처리 중...
                       </span>
-                    ) : {`${info.label}${josa(info.label)} 업그레이드`}}
+                    ) : `${info.label}${josa(info.label)} 업그레이드`}
                   </button>
                 )}
               </div>
