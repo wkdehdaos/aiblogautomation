@@ -70,13 +70,14 @@ try {
   })
 
   if (btnCount > 0) {
-    const keyValue = await page.evaluate(() => process.env?.NEXT_PUBLIC_TOSS_CLIENT_KEY ?? 'undefined')
-    console.log('브라우저 process.env 키값:', keyValue)
-
     await upgradeBtn.first().click()
     await page.waitForTimeout(5000)
     await ss('prod-05-toss')
     console.log('클릭 후 URL:', page.url())
+
+    const frames = page.frames()
+    console.log('프레임 수:', frames.length)
+    for (const f of frames) console.log('  frame:', f.url())
   } else {
     console.log('❌ 업그레이드 버튼 없음')
   }
