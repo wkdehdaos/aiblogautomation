@@ -20,6 +20,12 @@ interface UserInfo {
   name: string | null
 }
 
+function josa(word: string) {
+  const code = word.charCodeAt(word.length - 1) - 0xAC00
+  const jongseong = code >= 0 ? code % 28 : 0
+  return jongseong === 0 || jongseong === 8 ? '로' : '으로'
+}
+
 const PLAN_FEATURES: Record<Plan, string[]> = {
   free: ['월 3회 글 생성', 'AI 블로그 자동 작성', '네이버 발행'],
   basic: ['월 30회 글 생성', 'AI 블로그 자동 작성', '네이버 발행', '사진 모자이크'],
