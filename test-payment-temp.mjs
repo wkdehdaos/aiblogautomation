@@ -50,15 +50,33 @@ try {
   const btnCount = await upgradeBtn.count()
   console.log('업그레이드 버튼:', btnCount)
 
+  // loadTossPayments 호출 시 실제 키 값 캡처
+  await page.addInitScript(() => {
+    window.__tossKey = null
+    const origFetch = window.fetch
+    window.fetch = function(...args) {
+      const url = args[0]
+      if (typeof url === 'string' && url.includes('tosspayments')) {
+        console.log('TOSS_FETCH:', url)
+      }
+      return origFetch.apply(this, args)
+    }
+  })
+
+  // Toss SDK 로드 인터셉트
+  await page.route('**/*tosspayments*', async route => {
+    console.log('TOSS_REQUEST:', route.request().url())
+    await route.continue()
+  })
+
   if (btnCount > 0) {
+    const keyValue = await page.evaluate(() => process.env?.NEXT_PUBLIC_TOSS_CLIENT_KEY ?? 'undefined')
+    console.log('브라우저 process.env 키값:', keyValue)
+
     await upgradeBtn.first().click()
     await page.waitForTimeout(5000)
     await ss('prod-05-toss')
     console.log('클릭 후 URL:', page.url())
-
-    const frames = page.frames()
-    console.log('프레임 수:', frames.length)
-    for (const f of frames) console.log('  frame:', f.url())
   } else {
     console.log('❌ 업그레이드 버튼 없음')
   }
