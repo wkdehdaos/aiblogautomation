@@ -21,6 +21,8 @@ RUN npx playwright install chromium --with-deps
 
 # ── 소스 복사 + 빌드 ─────────────────────────────────────────────
 COPY . .
+ARG NEXT_PUBLIC_TOSS_CLIENT_KEY
+ENV NEXT_PUBLIC_TOSS_CLIENT_KEY=$NEXT_PUBLIC_TOSS_CLIENT_KEY
 RUN npm run build
 
 # SQLite 볼륨 마운트 경로 생성
