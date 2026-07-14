@@ -178,7 +178,7 @@ export default function PricingPage() {
                         </svg>
                         처리 중...
                       </span>
-                    ) : `${info.label}${info.label.endsWith('직') ? '으로' : '로'} 업그레이드`}
+                    ) : {(() => { const c = info.label.charCodeAt(info.label.length - 1) - 0xAC00; const j = c >= 0 ? c % 28 : 0; return `${info.label}${j === 0 || j === 8 ? '로' : '으로'} 업그레이드` })()}}
                   </button>
                 )}
               </div>
