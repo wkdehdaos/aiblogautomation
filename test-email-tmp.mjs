@@ -1,6 +1,6 @@
 import { Resend } from 'resend'
 
-const resend = new Resend('re_fSmo5VYz_BxWNkdo4aF7hJXKiiZAMCTvp')
+const resend = new Resend('re_Ax15g5Vm_76ehGWXFa3o3S2FfgjqKQw5J')
 
 try {
   const { data, error } = await resend.emails.send({
