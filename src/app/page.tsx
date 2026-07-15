@@ -558,21 +558,37 @@ export default function BlogFormPage() {
 
         {/* 사용자 표시줄 */}
         {currentUser && (
-          <div className="mb-4 flex items-center justify-between rounded-xl bg-white px-4 py-2.5 shadow-sm ring-1 ring-gray-100">
-            <span className="text-sm text-gray-600">
-              {currentUser.name ? (
-                <><span className="font-medium text-gray-900">{currentUser.name}</span> · {currentUser.email}</>
-              ) : (
-                currentUser.email
-              )}
-            </span>
-            <button
-              type="button"
-              onClick={handleLogout}
-              className="text-xs font-medium text-gray-400 hover:text-red-500 transition"
-            >
-              로그아웃
-            </button>
+          <div className="mb-4 rounded-xl bg-white px-4 py-3 shadow-sm ring-1 ring-gray-100">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="min-w-0 truncate text-sm text-gray-600">
+                {currentUser.name ? (
+                  <><span className="font-medium text-gray-900">{currentUser.name}</span> · {currentUser.email}</>
+                ) : (
+                  currentUser.email
+                )}
+              </span>
+              <div className="flex shrink-0 items-center gap-2">
+                <Link
+                  href="/pricing"
+                  className="rounded-lg bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-600 transition hover:bg-indigo-100"
+                >
+                  요금제
+                </Link>
+                <Link
+                  href="/contact"
+                  className="rounded-lg bg-gray-100 px-3 py-1.5 text-xs font-semibold text-gray-600 transition hover:bg-gray-200"
+                >
+                  제휴문의
+                </Link>
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className="text-xs font-medium text-gray-400 transition hover:text-red-500"
+                >
+                  로그아웃
+                </button>
+              </div>
+            </div>
           </div>
         )}
 
