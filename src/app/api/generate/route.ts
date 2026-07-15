@@ -219,7 +219,7 @@ export async function POST(req: NextRequest) {
 
     await prisma.user.update({
       where: { id: session.userId },
-      data: { postCount: { increment: 1 } },
+      data: { postCount: { increment: 1 }, betaCount: { increment: 1 } },
     })
 
     return Response.json({ title, content, successIndices })
