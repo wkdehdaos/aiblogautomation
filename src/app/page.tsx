@@ -396,6 +396,36 @@ export default function BlogFormPage() {
 
   const labelClass = 'mb-1.5 block text-sm font-medium text-gray-700'
 
+  const handleFeedbackSubmit = async () => {
+    if (!feedbackRating) return
+    setFeedbackSubmitting(true)
+    try {
+      await fetch('/api/feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rating: feedbackRating, publishSuccess: feedbackSuccess, comment: feedbackComment }),
+      })
+      setFeedbackDone(true)
+    } finally {
+      setFeedbackSubmitting(false)
+    }
+  }
+
+  const handleWaitlistSubmit = async () => {
+    if (!waitlistEmail) return
+    setWaitlistSubmitting(true)
+    try {
+      await fetch('/api/waitlist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: waitlistEmail }),
+      })
+      setWaitlistDone(true)
+    } finally {
+      setWaitlistSubmitting(false)
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-indigo-50 py-10 px-4">
       <div className="mx-auto max-w-2xl">
