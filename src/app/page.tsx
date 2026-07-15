@@ -371,8 +371,12 @@ export default function BlogFormPage() {
 
       const res = await fetch('/api/generate', { method: 'POST', body: fd })
       if (!res.ok) {
-        const err = await res.json().catch(() => ({}))
-        throw new Error((err as { error?: string }).error ?? `HTTP ${res.status}`)
+        const err = await res.json().catch(() => ({})) as { error?: string; betaExceeded?: boolean }
+        if (err.betaExceeded) {
+          setShowWaitlist(true)
+          return
+        }
+        throw new Error(err.error ?? `HTTP ${res.status}`)
       }
       const data = (await res.json()) as { title: string; content: string; successIndices?: number[] }
       const resultPhotos = data.successIndices
