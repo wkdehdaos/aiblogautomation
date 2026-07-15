@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 const CONTACT_TYPES = ['제휴 문의', '기술 문의', '기타']
 
 export default function ContactPage() {
+  const router = useRouter()
   const [form, setForm] = useState({ name: '', email: '', type: '제휴 문의', content: '' })
   const [submitting, setSubmitting] = useState(false)
   const [success, setSuccess] = useState(false)
