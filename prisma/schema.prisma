@@ -8,10 +8,10 @@ datasource db {
 }
 
 model User {
-  id          String      @id @default(cuid())
-  email       String      @unique
-  password    String
-  name        String?
+  id                    String      @id @default(cuid())
+  email                 String      @unique
+  password              String
+  name                  String?
   naverBlogId           String?
   naverSession          String?
   sessionUploadedAt     DateTime?
@@ -23,9 +23,12 @@ model User {
   planExpiresAt         DateTime?
   postCount             Int       @default(0)
   postCountResetAt      DateTime  @default(now())
-  createdAt         DateTime  @default(now())
-  updatedAt   DateTime    @updatedAt
-  posts       BlogPost[]
+  betaCount             Int       @default(0)
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  posts                 BlogPost[]
+  feedbacks             Feedback[]
+  waitlist              Waitlist?
 }
 
 model BlogPost {
@@ -34,10 +37,37 @@ model BlogPost {
   title        String
   content      String
   businessName String
-  keywords     String    @default("[]")  // JSON 배열 문자열
-  filePath     String?                   // posts/ 내 마크다운 경로
-  publishedUrl String?                   // 네이버 발행 URL
+  keywords     String    @default("[]")
+  filePath     String?
+  publishedUrl String?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
   user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Feedback {
+  id             String   @id @default(cuid())
+  userId         String
+  rating         Int
+  publishSuccess Boolean
+  comment        String?
+  createdAt      DateTime @default(now())
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Waitlist {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  userId    String?  @unique
+  createdAt DateTime @default(now())
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+}
+
+model Contact {
+  id        String   @id @default(cuid())
+  name      String
+  email     String
+  type      String
+  content   String
+  createdAt DateTime @default(now())
 }
