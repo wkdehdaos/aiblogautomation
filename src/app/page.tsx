@@ -161,6 +161,20 @@ export default function BlogFormPage() {
   const [mosaicUrls, setMosaicUrls] = useState<Record<string, string>>({})
   const [mosaicLoading, setMosaicLoading] = useState<Set<string>>(new Set())
 
+  // 피드백 팝업
+  const [showFeedback, setShowFeedback] = useState(false)
+  const [feedbackRating, setFeedbackRating] = useState(0)
+  const [feedbackSuccess, setFeedbackSuccess] = useState(true)
+  const [feedbackComment, setFeedbackComment] = useState('')
+  const [feedbackSubmitting, setFeedbackSubmitting] = useState(false)
+  const [feedbackDone, setFeedbackDone] = useState(false)
+
+  // 베타 소진 대기자 모달
+  const [showWaitlist, setShowWaitlist] = useState(false)
+  const [waitlistEmail, setWaitlistEmail] = useState('')
+  const [waitlistSubmitting, setWaitlistSubmitting] = useState(false)
+  const [waitlistDone, setWaitlistDone] = useState(false)
+
   const dragIndexRef = useRef<number | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const previewRef = useRef<HTMLDivElement>(null)
