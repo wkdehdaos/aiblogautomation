@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/db'
-import nodemailer from 'nodemailer'
+import { Resend } from 'resend'
 
 export async function POST(req: NextRequest) {
   const { name, email, type, content } = await req.json() as {
@@ -16,21 +16,14 @@ export async function POST(req: NextRequest) {
 
   await prisma.contact.create({ data: { name, email, type, content } })
 
-  // 이메일 알림 발송
-  const gmailUser = process.env.GMAIL_USER
-  const gmailPass = process.env.GMAIL_PASSWORD
+  const resendKey = process.env.RESEND_API_KEY
   const adminEmail = process.env.ADMIN_EMAIL
 
-  if (gmailUser && gmailPass && adminEmail) {
+  if (resendKey && adminEmail) {
     try {
-      const transporter = nodemailer.createTransport({
-        host: 'smtp.gmail.com',
-        port: 587,
-        secure: false,
-        auth: { user: gmailUser, pass: gmailPass },
-      })
-      await transporter.sendMail({
-        from: `"AI블로그" <${gmailUser}>`,
+      const resend = new Resend(resendKey)
+      await resend.emails.send({
+        from: 'AI블로그 <onboarding@resend.dev>',
         to: adminEmail,
         subject: '[AI블로그] 새 문의가 접수됐어요',
         text: `이름: ${name}\n이메일: ${email}\n문의 유형: ${type}\n\n내용:\n${content}`,
