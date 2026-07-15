@@ -1,3 +1,5 @@
+export const BETA_LIMIT = 5
+
 export type Plan = 'free' | 'basic' | 'pro'
 
 export const PLANS = {
