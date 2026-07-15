@@ -1000,6 +1000,10 @@ export default function BlogFormPage() {
                     const data = await res.json() as { success: boolean; url?: string; error?: string; lastStep?: string }
                     if (data.success) {
                       setPublishStatus({ type: 'success', message: '발행 완료! 네이버 블로그에서 확인해보세요.' })
+                      setShowFeedback(true)
+                      setFeedbackRating(0)
+                      setFeedbackComment('')
+                      setFeedbackDone(false)
                     } else {
                       const isSessionExpired =
                         data.error?.includes('세션') ||
