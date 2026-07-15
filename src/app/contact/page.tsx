@@ -62,6 +62,13 @@ export default function ContactPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-indigo-50 py-12 px-4">
       <div className="mx-auto max-w-lg">
+        <button
+          type="button"
+          onClick={() => router.back()}
+          className="mb-6 flex items-center gap-1.5 text-sm font-medium text-gray-500 transition hover:text-gray-800"
+        >
+          ← 돌아가기
+        </button>
         <div className="mb-8 text-center">
           <h1 className="text-2xl font-bold text-gray-900">제휴 및 문의</h1>
           <p className="mt-2 text-sm text-gray-500">궁금한 점이나 제휴 관련 문의를 남겨주세요.</p>
