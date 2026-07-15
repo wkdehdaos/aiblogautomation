@@ -429,6 +429,113 @@ export default function BlogFormPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-indigo-50 py-10 px-4">
       <div className="mx-auto max-w-2xl">
+        {/* 베타 배너 */}
+        <div className="mb-4 flex items-center justify-center gap-2 rounded-xl bg-orange-500 px-4 py-2.5 text-sm font-semibold text-white shadow-sm shadow-orange-200">
+          🚀 베타 테스트 중 - 무료로 5회 이용 가능
+        </div>
+
+        {/* 피드백 팝업 */}
+        {showFeedback && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+            <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl">
+              {feedbackDone ? (
+                <div className="text-center py-4">
+                  <p className="text-2xl mb-2">🙏</p>
+                  <p className="font-semibold text-gray-800">피드백 감사합니다!</p>
+                  <button onClick={() => setShowFeedback(false)} className="mt-4 w-full rounded-xl bg-indigo-500 py-2.5 text-sm font-semibold text-white hover:bg-indigo-600 transition">닫기</button>
+                </div>
+              ) : (
+                <>
+                  <h3 className="text-base font-bold text-gray-900 mb-1">블로그 발행이 완료됐어요! 🎉</h3>
+                  <p className="text-xs text-gray-400 mb-4">피드백을 남겨주시면 서비스 개선에 큰 도움이 됩니다.</p>
+
+                  <div className="mb-4">
+                    <p className="text-sm font-medium text-gray-700 mb-2">글 품질은 어떠셨나요?</p>
+                    <div className="flex gap-1">
+                      {[1, 2, 3, 4, 5].map(s => (
+                        <button key={s} type="button" onClick={() => setFeedbackRating(s)}
+                          className={`text-2xl transition ${s <= feedbackRating ? 'text-yellow-400' : 'text-gray-200'} hover:text-yellow-300`}>
+                          ★
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="mb-4">
+                    <p className="text-sm font-medium text-gray-700 mb-2">발행은 잘 됐나요?</p>
+                    <div className="flex gap-2">
+                      <button type="button" onClick={() => setFeedbackSuccess(true)}
+                        className={`flex-1 rounded-lg border py-2 text-sm font-medium transition ${feedbackSuccess ? 'border-green-500 bg-green-50 text-green-700' : 'border-gray-200 text-gray-500 hover:border-gray-300'}`}>
+                        ✅ 잘 됐어요
+                      </button>
+                      <button type="button" onClick={() => setFeedbackSuccess(false)}
+                        className={`flex-1 rounded-lg border py-2 text-sm font-medium transition ${!feedbackSuccess ? 'border-red-400 bg-red-50 text-red-600' : 'border-gray-200 text-gray-500 hover:border-gray-300'}`}>
+                        ❌ 문제가 있었어요
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="mb-4">
+                    <p className="text-sm font-medium text-gray-700 mb-1.5">개선했으면 하는 점이 있나요?</p>
+                    <textarea
+                      rows={3}
+                      value={feedbackComment}
+                      onChange={e => setFeedbackComment(e.target.value)}
+                      placeholder="자유롭게 의견을 남겨주세요 (선택)"
+                      className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 placeholder-gray-400 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-200 resize-none"
+                    />
+                  </div>
+
+                  <div className="flex gap-2">
+                    <button type="button" onClick={() => setShowFeedback(false)}
+                      className="flex-1 rounded-xl border border-gray-200 py-2.5 text-sm font-medium text-gray-500 hover:bg-gray-50 transition">
+                      나중에
+                    </button>
+                    <button type="button" onClick={handleFeedbackSubmit} disabled={!feedbackRating || feedbackSubmitting}
+                      className="flex-1 rounded-xl bg-indigo-500 py-2.5 text-sm font-semibold text-white hover:bg-indigo-600 transition disabled:opacity-50">
+                      {feedbackSubmitting ? '제출 중...' : '피드백 제출'}
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* 베타 소진 대기자 모달 */}
+        {showWaitlist && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+            <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl text-center">
+              {waitlistDone ? (
+                <>
+                  <p className="text-2xl mb-2">🎉</p>
+                  <p className="font-semibold text-gray-800">등록 완료!</p>
+                  <p className="mt-1 text-sm text-gray-500">정식 출시 시 이메일로 알려드릴게요.</p>
+                  <button onClick={() => setShowWaitlist(false)} className="mt-4 w-full rounded-xl bg-indigo-500 py-2.5 text-sm font-semibold text-white hover:bg-indigo-600 transition">닫기</button>
+                </>
+              ) : (
+                <>
+                  <p className="text-3xl mb-3">😢</p>
+                  <p className="font-bold text-gray-900 mb-1">베타 테스트 횟수를 모두 사용했어요.</p>
+                  <p className="text-sm text-gray-500 mb-4">정식 출시 시 알림을 받으시겠어요?</p>
+                  <input
+                    type="email"
+                    value={waitlistEmail}
+                    onChange={e => setWaitlistEmail(e.target.value)}
+                    placeholder="이메일 입력"
+                    className="w-full rounded-lg border border-gray-200 px-4 py-2.5 text-sm text-gray-800 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-200 mb-3"
+                  />
+                  <button onClick={handleWaitlistSubmit} disabled={!waitlistEmail || waitlistSubmitting}
+                    className="w-full rounded-xl bg-indigo-500 py-2.5 text-sm font-semibold text-white hover:bg-indigo-600 transition disabled:opacity-50 mb-2">
+                    {waitlistSubmitting ? '등록 중...' : '알림 받기'}
+                  </button>
+                  <button onClick={() => setShowWaitlist(false)} className="text-xs text-gray-400 hover:text-gray-600 transition">닫기</button>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* 사용자 표시줄 */}
         {currentUser && (
           <div className="mb-4 flex items-center justify-between rounded-xl bg-white px-4 py-2.5 shadow-sm ring-1 ring-gray-100">
