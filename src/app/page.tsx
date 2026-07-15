@@ -1147,7 +1147,7 @@ export default function BlogFormPage() {
             <div className="flex gap-3 pb-10">
               <button
                 type="button"
-                onClick={() => { setResult(null); setPublishStatus(null); setSaveStatus(null) }}
+                onClick={() => { setResult(null); setPublishStatus(null) }}
                 disabled={isPublishing}
                 className="flex-1 rounded-2xl border border-gray-200 bg-white py-3.5 text-sm font-semibold text-gray-700 shadow-sm transition hover:border-gray-300 hover:bg-gray-50 active:scale-[0.98] disabled:opacity-50"
               >
