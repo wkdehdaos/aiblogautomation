@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 
 const CONTACT_TYPES = ['제휴 문의', '기술 문의', '기타']
 
