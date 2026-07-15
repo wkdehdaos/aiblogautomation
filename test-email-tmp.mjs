@@ -5,7 +5,7 @@ const resend = new Resend('re_Ax15g5Vm_76ehGWXFa3o3S2FfgjqKQw5J')
 try {
   const { data, error } = await resend.emails.send({
     from: 'AI블로그 <onboarding@resend.dev>',
-    to: 'jjangda895@gmail.com',
+    to: 'a01067709308@gmail.com',
     subject: '[AI블로그] 새 문의가 접수됐어요',
     text: '이름: 테스트유저\n이메일: test@test.com\n문의 유형: 제휴 문의\n\n내용:\n이메일 발송 테스트입니다.',
   })
