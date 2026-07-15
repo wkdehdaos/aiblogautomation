@@ -8,26 +8,13 @@ export default function Footer() {
           © 2026 AI블로그. All rights reserved.
         </p>
         <div className="flex items-center gap-4">
-          <Link
-            href="/pricing"
-            className="text-xs text-gray-400 hover:text-indigo-500 transition"
-          >
-            요금제
-          </Link>
+          <Link href="/pricing" className="text-xs text-gray-400 hover:text-indigo-500 transition">요금제</Link>
           <span className="text-gray-200">|</span>
-          <Link
-            href="/privacy"
-            className="text-xs text-gray-400 hover:text-indigo-500 transition"
-          >
-            개인정보처리방침
-          </Link>
+          <Link href="/contact" className="text-xs text-gray-400 hover:text-indigo-500 transition">제휴 문의</Link>
           <span className="text-gray-200">|</span>
-          <Link
-            href="/terms"
-            className="text-xs text-gray-400 hover:text-indigo-500 transition"
-          >
-            이용약관
-          </Link>
+          <Link href="/privacy" className="text-xs text-gray-400 hover:text-indigo-500 transition">개인정보처리방침</Link>
+          <span className="text-gray-200">|</span>
+          <Link href="/terms" className="text-xs text-gray-400 hover:text-indigo-500 transition">이용약관</Link>
         </div>
       </div>
     </footer>
