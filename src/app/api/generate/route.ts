@@ -67,6 +67,14 @@ export async function POST(req: NextRequest) {
   let user = await prisma.user.findUnique({ where: { id: session.userId } })
   if (!user) return Response.json({ error: '사용자를 찾을 수 없습니다.' }, { status: 404 })
 
+  // 베타 한도 체크 (5회)
+  if (user.betaCount >= BETA_LIMIT) {
+    return Response.json(
+      { error: '베타 테스트 횟수를 모두 사용했어요. 정식 출시 시 알림을 받으시겠어요?', betaExceeded: true },
+      { status: 429 }
+    )
+  }
+
   if (isNewMonth(user.postCountResetAt)) {
     user = await prisma.user.update({
       where: { id: session.userId },
