@@ -428,6 +428,24 @@ export default function BlogFormPage() {
     }
   }
 
+  const handleErrorReport = async () => {
+    setErrorReportSubmitting(true)
+    try {
+      await fetch('/api/feedback/error', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          errorMessage: publishStatus?.message ?? '',
+          lastStep: publishStatus?.step ?? '',
+          userComment: errorReportComment,
+        }),
+      })
+      setErrorReportDone(true)
+    } finally {
+      setErrorReportSubmitting(false)
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-indigo-50 py-10 px-4">
       <div className="mx-auto max-w-2xl">
