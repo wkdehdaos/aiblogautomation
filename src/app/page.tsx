@@ -522,6 +522,51 @@ export default function BlogFormPage() {
           </div>
         )}
 
+        {/* 오류 신고 모달 */}
+        {showErrorReport && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+            <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl">
+              {errorReportDone ? (
+                <div className="py-4 text-center">
+                  <p className="mb-2 text-2xl">✅</p>
+                  <p className="font-semibold text-gray-800">신고가 접수됐습니다!</p>
+                  <p className="mt-1 text-sm text-gray-500">빠르게 확인 후 개선할게요.</p>
+                  <button onClick={() => setShowErrorReport(false)} className="mt-4 w-full rounded-xl bg-indigo-500 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-600">닫기</button>
+                </div>
+              ) : (
+                <>
+                  <h3 className="mb-1 text-base font-bold text-gray-900">오류 신고하기 🚨</h3>
+                  <p className="mb-4 text-xs text-gray-400">아래 오류 정보가 개발팀에 전달됩니다.</p>
+                  <div className="mb-3 rounded-lg bg-red-50 px-3 py-2.5 text-xs text-red-600 ring-1 ring-red-200">
+                    {publishStatus?.message}
+                    {publishStatus?.step && <span className="ml-1 opacity-70">(단계: {publishStatus.step})</span>}
+                  </div>
+                  <div className="mb-4">
+                    <p className="mb-1.5 text-sm font-medium text-gray-700">추가 설명 (선택)</p>
+                    <textarea
+                      rows={3}
+                      value={errorReportComment}
+                      onChange={e => setErrorReportComment(e.target.value)}
+                      placeholder="어떤 상황에서 오류가 발생했는지 알려주세요"
+                      className="w-full resize-none rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 placeholder-gray-400 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-200"
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <button type="button" onClick={() => setShowErrorReport(false)}
+                      className="flex-1 rounded-xl border border-gray-200 py-2.5 text-sm font-medium text-gray-500 transition hover:bg-gray-50">
+                      취소
+                    </button>
+                    <button type="button" onClick={handleErrorReport} disabled={errorReportSubmitting}
+                      className="flex-1 rounded-xl bg-red-500 py-2.5 text-sm font-semibold text-white transition hover:bg-red-600 disabled:opacity-50">
+                      {errorReportSubmitting ? '전송 중...' : '신고 제출'}
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* 베타 소진 대기자 모달 */}
         {showWaitlist && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
