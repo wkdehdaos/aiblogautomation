@@ -41,7 +41,7 @@ export default async function AdminPage() {
         {/* 통계 */}
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
           {[
-            { label: '가입자 수', value: users.length },
+            { label: '베타 참여', value: `${users.length}/${maxUsers}명` },
             { label: '베타 총 사용', value: `${totalBetaUsed}회` },
             { label: '평균 별점', value: `${avgRating}★` },
             { label: '대기자 수', value: waitlist.length },
