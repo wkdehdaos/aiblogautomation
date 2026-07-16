@@ -81,3 +81,8 @@ model Contact {
   content   String
   createdAt DateTime @default(now())
 }
+
+model BetaConfig {
+  id       Int @id
+  maxUsers Int @default(30)
+}
