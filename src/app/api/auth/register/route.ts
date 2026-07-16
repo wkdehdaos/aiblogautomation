@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
 
     const betaConfig = await prisma.betaConfig.findUnique({ where: { id: 1 } })
     const maxUsers = betaConfig?.maxUsers ?? Number(process.env.BETA_MAX_USERS ?? 30)
-    const userCount = await prisma.user.count()
+    const userCount = await prisma.user.count({ where: { email: { not: process.env.ADMIN_EMAIL } } })
     if (userCount >= maxUsers) {
       return Response.json({ error: '베타 테스트 인원이 마감됐어요. 대기자 명단에 등록해주세요.', betaFull: true }, { status: 403 })
     }
