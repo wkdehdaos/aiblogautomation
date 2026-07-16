@@ -23,9 +23,9 @@ export async function POST(req: NextRequest) {
     try {
       const resend = new Resend(resendKey)
       await resend.emails.send({
-        from: 'AI블로그 <onboarding@resend.dev>',
+        from: '블로디(Blogdy) <onboarding@resend.dev>',
         to: adminEmail,
-        subject: '[AI블로그] 새 문의가 접수됐어요',
+        subject: '[블로디(Blogdy)] 새 문의가 접수됐어요',
         text: `이름: ${name}\n이메일: ${email}\n문의 유형: ${type}\n\n내용:\n${content}`,
         html: `
           <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:24px;border:1px solid #e5e7eb;border-radius:12px">

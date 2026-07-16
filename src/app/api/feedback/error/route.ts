@@ -15,9 +15,9 @@ export async function POST(req: NextRequest) {
     try {
       const resend = new Resend(resendKey)
       await resend.emails.send({
-        from: 'AI블로그 <onboarding@resend.dev>',
+        from: '블로디(Blogdy) <onboarding@resend.dev>',
         to: adminEmail,
-        subject: '[AI블로그] 🚨 발행 오류 신고',
+        subject: '[블로디(Blogdy)] 🚨 발행 오류 신고',
         text: `오류 메시지: ${errorMessage}\n실패 단계: ${lastStep ?? '알 수 없음'}\n\n사용자 설명:\n${userComment ?? '없음'}`,
         html: `
           <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:24px;border:1px solid #fecaca;border-radius:12px;background:#fff5f5">
