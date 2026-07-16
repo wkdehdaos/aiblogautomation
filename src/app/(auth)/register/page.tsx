@@ -55,6 +55,20 @@ export default function RegisterPage() {
     return `${m}:${s}`
   }
 
+  async function handleBetaWaitlist() {
+    setBetaWaitlistSubmitting(true)
+    try {
+      await fetch('/api/waitlist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: betaWaitlistEmail }),
+      })
+      setBetaWaitlistDone(true)
+    } finally {
+      setBetaWaitlistSubmitting(false)
+    }
+  }
+
   async function handleSendSms() {
     setSmsError('')
     setSmsLoading(true)
