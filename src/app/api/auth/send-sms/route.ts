@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
     await messageService.send({
       to: normalized,
       from: process.env.SOLAPI_SENDER!,
-      text: `AI블로그 인증번호: [${code}] (5분 내 입력)`,
+      text: `블로디(Blogdy) 인증번호: [${code}] (5분 내 입력)`,
     })
 
     return Response.json({ ok: true })
