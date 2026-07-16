@@ -35,6 +35,13 @@ export async function POST(req: NextRequest) {
       return Response.json({ error: '휴대폰 인증을 완료해주세요.' }, { status: 400 })
     }
 
+    const betaConfig = await prisma.betaConfig.findUnique({ where: { id: 1 } })
+    const maxUsers = betaConfig?.maxUsers ?? Number(process.env.BETA_MAX_USERS ?? 30)
+    const userCount = await prisma.user.count()
+    if (userCount >= maxUsers) {
+      return Response.json({ error: '베타 테스트 인원이 마감됐어요. 대기자 명단에 등록해주세요.', betaFull: true }, { status: 403 })
+    }
+
     const existing = await prisma.user.findUnique({ where: { email } })
     if (existing) {
       return Response.json({ error: '이미 사용 중인 이메일입니다.' }, { status: 409 })
