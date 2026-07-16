@@ -177,6 +177,8 @@ export default function BlogFormPage() {
   const [waitlistSubmitting, setWaitlistSubmitting] = useState(false)
   const [waitlistDone, setWaitlistDone] = useState(false)
 
+  const [betaStatus, setBetaStatus] = useState<{ userCount: number; maxUsers: number } | null>(null)
+
   const dragIndexRef = useRef<number | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const previewRef = useRef<HTMLDivElement>(null)
