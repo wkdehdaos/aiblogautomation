@@ -61,6 +61,6 @@ export async function POST(req: NextRequest) {
     return Response.json({ ok: true })
   } catch (err) {
     console.error('[send-sms]', err)
-    return Response.json({ error: '인증번호 발송에 실패했습니다.' }, { status: 500 })
+    return Response.json({ error: '인증번호 발송에 실패했습니다.', detail: String(err) }, { status: 500 })
   }
 }
