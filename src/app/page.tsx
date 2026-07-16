@@ -197,6 +197,10 @@ export default function BlogFormPage() {
         setNaverUploadedAt(d.sessionUploadedAt ?? null)
       })
       .catch(() => setNaverConnected(false))
+    fetch('/api/beta/status')
+      .then(r => r.json())
+      .then((d: { userCount: number; maxUsers: number }) => setBetaStatus(d))
+      .catch(() => {})
   }, [])
 
   const handleLogout = async () => {
