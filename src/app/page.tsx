@@ -457,7 +457,7 @@ export default function BlogFormPage() {
       <div className="mx-auto max-w-2xl">
         {/* 베타 배너 */}
         <div className="mb-4 flex items-center justify-center gap-2 rounded-xl bg-orange-500 px-4 py-2.5 text-sm font-semibold text-white shadow-sm shadow-orange-200">
-          🚀 블로디(Blogdy) 베타 테스트 중 - 무료로 5회 이용 가능
+          🚀 블로디(Blogdy) 베타 테스트 중 - 무료로 5회 이용 가능{betaStatus ? ` (현재 ${betaStatus.userCount}/${betaStatus.maxUsers}명 참여 중)` : ''}
         </div>
 
         {/* 피드백 팝업 */}
