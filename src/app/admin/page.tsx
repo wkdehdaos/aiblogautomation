@@ -53,6 +53,21 @@ export default async function AdminPage() {
           ))}
         </div>
 
+        {/* 베타 인원 관리 */}
+        <section className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-gray-100">
+          <h2 className="mb-4 text-base font-semibold text-gray-800">베타 인원 한도 관리</h2>
+          <div className="flex items-center gap-4">
+            <div className="text-sm text-gray-600">
+              현재 <span className="font-semibold text-indigo-600">{users.length}</span>명 / 한도{' '}
+              <span className="font-semibold text-gray-900">{maxUsers}</span>명
+              {users.length >= maxUsers && (
+                <span className="ml-2 rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-600">마감</span>
+              )}
+            </div>
+            <BetaConfigPanel initialMaxUsers={maxUsers} />
+          </div>
+        </section>
+
         {/* 피드백 */}
         <section className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-gray-100">
           <h2 className="mb-4 text-base font-semibold text-gray-800">피드백 ({feedbacks.length})</h2>
