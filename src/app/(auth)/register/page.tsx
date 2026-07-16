@@ -132,6 +132,54 @@ export default function RegisterPage() {
   const inputClass =
     'w-full rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-800 placeholder-gray-400 outline-none transition focus:border-indigo-400 focus:ring-2 focus:ring-indigo-200'
 
+  if (betaLoading) {
+    return (
+      <div className="w-full max-w-sm flex items-center justify-center py-20">
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-indigo-500 border-t-transparent" />
+      </div>
+    )
+  }
+
+  if (betaFull) {
+    return (
+      <div className="w-full max-w-sm">
+        <div className="mb-8 text-center">
+          <h1 className="text-2xl font-bold text-gray-900">블로디(Blogdy)</h1>
+        </div>
+        <div className="rounded-2xl bg-white p-8 shadow-sm ring-1 ring-gray-100 space-y-4 text-center">
+          <p className="text-3xl">😢</p>
+          <h2 className="text-lg font-bold text-gray-900">베타 테스트 인원이 마감됐어요.</h2>
+          <p className="text-sm text-gray-500">
+            이메일을 남겨주시면 정식 오픈 시 가장 먼저 알려드릴게요!
+          </p>
+          {betaWaitlistDone ? (
+            <p className="font-semibold text-green-600">등록 완료! 정식 오픈 시 알림을 드릴게요. 🎉</p>
+          ) : (
+            <>
+              <input
+                type="email"
+                value={betaWaitlistEmail}
+                onChange={e => setBetaWaitlistEmail(e.target.value)}
+                placeholder="이메일 입력"
+                className="w-full rounded-lg border border-gray-200 px-4 py-2.5 text-sm text-gray-800 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-200"
+              />
+              <button
+                onClick={handleBetaWaitlist}
+                disabled={!betaWaitlistEmail || betaWaitlistSubmitting}
+                className="w-full rounded-xl bg-indigo-500 py-3 text-sm font-semibold text-white transition hover:bg-indigo-600 disabled:opacity-50"
+              >
+                {betaWaitlistSubmitting ? '등록 중...' : '대기자 등록하기'}
+              </button>
+            </>
+          )}
+          <Link href="/login" className="block text-sm text-indigo-500 hover:underline">
+            이미 계정이 있으신가요? 로그인
+          </Link>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="w-full max-w-sm">
       <div className="mb-8 text-center">
