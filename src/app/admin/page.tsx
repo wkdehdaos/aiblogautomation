@@ -16,12 +16,14 @@ export default async function AdminPage() {
     )
   }
 
-  const [users, feedbacks, contacts, waitlist] = await Promise.all([
+  const [users, feedbacks, contacts, waitlist, betaConfig] = await Promise.all([
     prisma.user.findMany({ select: { id: true, email: true, betaCount: true, createdAt: true }, orderBy: { createdAt: 'desc' } }),
     prisma.feedback.findMany({ include: { user: { select: { email: true } } }, orderBy: { createdAt: 'desc' } }),
     prisma.contact.findMany({ orderBy: { createdAt: 'desc' } }),
     prisma.waitlist.findMany({ orderBy: { createdAt: 'desc' } }),
+    prisma.betaConfig.findUnique({ where: { id: 1 } }),
   ])
+  const maxUsers = betaConfig?.maxUsers ?? Number(process.env.BETA_MAX_USERS ?? 30)
 
   const avgRating = feedbacks.length
     ? (feedbacks.reduce((s, f) => s + f.rating, 0) / feedbacks.length).toFixed(1)
