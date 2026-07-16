@@ -31,6 +31,13 @@ export default function RegisterPage() {
     return () => { if (timerRef.current) clearInterval(timerRef.current) }
   }, [])
 
+  useEffect(() => {
+    fetch('/api/beta/status')
+      .then(r => r.json())
+      .then((d: { isFull: boolean }) => { setBetaFull(d.isFull); setBetaLoading(false) })
+      .catch(() => setBetaLoading(false))
+  }, [])
+
   function startTimer() {
     if (timerRef.current) clearInterval(timerRef.current)
     setTimer(TIMER_SECONDS)
