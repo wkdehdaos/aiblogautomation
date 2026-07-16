@@ -52,12 +52,10 @@ export async function POST(req: NextRequest) {
       process.env.SOLAPI_API_KEY!,
       process.env.SOLAPI_API_SECRET!
     )
-    await messageService.sendOne({
-      message: {
-        to: normalized,
-        from: process.env.SOLAPI_SENDER!,
-        text: `AI블로그 인증번호: [${code}] (5분 내 입력)`,
-      },
+    await messageService.send({
+      to: normalized,
+      from: process.env.SOLAPI_SENDER!,
+      text: `AI블로그 인증번호: [${code}] (5분 내 입력)`,
     })
 
     return Response.json({ ok: true })
