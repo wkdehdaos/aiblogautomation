@@ -12,6 +12,12 @@ export default function RegisterPage() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
+  const [betaFull, setBetaFull] = useState(false)
+  const [betaLoading, setBetaLoading] = useState(true)
+  const [betaWaitlistEmail, setBetaWaitlistEmail] = useState('')
+  const [betaWaitlistSubmitting, setBetaWaitlistSubmitting] = useState(false)
+  const [betaWaitlistDone, setBetaWaitlistDone] = useState(false)
+
   const [codeInput, setCodeInput] = useState('')
   const [codeSent, setCodeSent] = useState(false)
   const [verified, setVerified] = useState(false)
