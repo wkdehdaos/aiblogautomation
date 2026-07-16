@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 
 export const metadata: Metadata = {
-  title: '이용약관 | AI 블로그 자동 작성',
+  title: '이용약관 | 블로디(Blogdy)',
 }
 
 const EFFECTIVE_DATE = '2026년 7월 6일'
@@ -20,7 +20,7 @@ export default function TermsPage() {
 
         {/* 안내 */}
         <section className="rounded-2xl bg-indigo-50 px-6 py-4 ring-1 ring-indigo-100 text-sm text-indigo-700 leading-relaxed">
-          AI 블로그 자동 작성 서비스(이하 "서비스")를 이용하시기 전에 본 약관을 주의 깊게 읽어 주세요.
+          블로디(Blogdy) 서비스(이하 "서비스")를 이용하시기 전에 본 약관을 주의 깊게 읽어 주세요.
           서비스 이용 시 본 약관에 동의한 것으로 간주합니다.
         </section>
 

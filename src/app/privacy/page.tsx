@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 
 export const metadata: Metadata = {
-  title: '개인정보처리방침 | AI 블로그 자동 작성',
+  title: '개인정보처리방침 | 블로디(Blogdy)',
 }
 
 const CONTACT_EMAIL = '[이메일]'
@@ -21,7 +21,7 @@ export default function PrivacyPage() {
 
         {/* 안내 */}
         <section className="rounded-2xl bg-indigo-50 px-6 py-4 ring-1 ring-indigo-100 text-sm text-indigo-700 leading-relaxed">
-          AI 블로그 자동 작성 서비스(이하 "서비스")는 이용자의 개인정보를 중요하게 생각합니다.
+          블로디(Blogdy) 서비스(이하 "서비스")는 이용자의 개인정보를 중요하게 생각합니다.
           본 방침은 수집하는 개인정보의 항목, 이용 목적, 보관 기간 및 이용자의 권리를 안내합니다.
         </section>
 
