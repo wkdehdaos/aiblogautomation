@@ -4,8 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "prisma migrate deploy && prisma generate && next build",
-    "start": "next start -p ${PORT:-3000}",
+    "build": "prisma generate && next build",
+    "start": "prisma migrate deploy && next start -p ${PORT:-3000}",
     "lint": "eslint",
     "naver-login": "tsx scripts/naver-login.ts",
     "naver-publish": "tsx scripts/naver-publish.ts"
