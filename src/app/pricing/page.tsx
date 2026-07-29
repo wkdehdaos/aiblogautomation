@@ -29,6 +29,10 @@ export default function PricingPage() {
   }, [])
 
   async function handlePayment(plan: 'basic' | 'pro') {
+    if (!status) {
+      router.push('/login?from=/pricing')
+      return
+    }
     const PortOne = portoneRef.current
     if (!PortOne) return
 
