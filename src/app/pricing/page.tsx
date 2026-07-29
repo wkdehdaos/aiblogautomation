@@ -35,7 +35,7 @@ export default function PricingPage() {
   }, [])
 
   async function handlePayment(plan: 'basic' | 'pro') {
-    if (!status) {
+    if (!loggedIn) {
       router.push('/login?from=/pricing')
       return
     }
