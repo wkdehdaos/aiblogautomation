@@ -9,6 +9,7 @@ export default function Footer() {
           상호: 블로디(Blogdy)&nbsp;&nbsp;|&nbsp;&nbsp;대표자: 장희섭&nbsp;&nbsp;|&nbsp;&nbsp;
           사업자등록번호: 841-15-02927&nbsp;&nbsp;|&nbsp;&nbsp;
           주소: 경기도 파주시 마음밭길 114&nbsp;&nbsp;|&nbsp;&nbsp;
+          전화: 010-6770-9308&nbsp;&nbsp;|&nbsp;&nbsp;
           이메일:{' '}
           <a href="mailto:a01067709308@gmail.com" className="hover:text-indigo-500 transition">
             a01067709308@gmail.com
