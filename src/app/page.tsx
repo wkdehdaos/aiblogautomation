@@ -585,11 +585,16 @@ export default function BlogFormPage() {
         </div>
       )}
 
-      {/* ── 2열 메인 레이아웃 ── */}
-      <div className="flex flex-1 flex-col md:flex-row" style={{ background: 'var(--surface-1)' }}>
+      {/* ── 메인 레이아웃 (생성 전: 1열 / 생성 후: 2열) ── */}
+      <div className={`flex flex-1 flex-col ${isGenerated ? 'md:flex-row' : ''}`} style={{ background: 'var(--surface-1)' }}>
 
         {/* ────── LEFT : 입력 폼 ────── */}
-        <div className="w-full border-b border-[var(--border)] md:w-1/2 md:border-b-0 md:border-r md:h-[calc(100vh-var(--nav-h))] md:overflow-y-auto"
+        <div
+          className={`border-[var(--border)] transition-none ${
+            isGenerated
+              ? 'w-full border-b md:w-1/2 md:border-b-0 md:border-r md:h-[calc(100vh-var(--nav-h))] md:overflow-y-auto'
+              : 'w-full max-w-2xl mx-auto'
+          }`}
           style={{ background: 'var(--surface-0)', padding: '20px' }}>
 
           {/* 베타 바 */}
