@@ -67,29 +67,34 @@ export async function POST(req: NextRequest) {
   let user = await prisma.user.findUnique({ where: { id: session.userId } })
   if (!user) return Response.json({ error: '사용자를 찾을 수 없습니다.' }, { status: 404 })
 
-  // 베타 한도 체크 (5회)
-  if (user.betaCount >= BETA_LIMIT) {
-    return Response.json(
-      { error: '베타 테스트 횟수를 모두 사용했어요. 정식 출시 시 알림을 받으시겠어요?', betaExceeded: true },
-      { status: 429 }
-    )
-  }
+  // 개발자 계정은 모든 제한 없이 통과
+  const isDeveloper = DEVELOPER_EMAILS.has(user.email)
 
-  // 유료 플랜 사용자만 월별 한도 체크 (베타 기간 중 무료 사용자는 betaCount로만 제한)
-  if (user.plan !== 'free') {
-    if (isNewMonth(user.postCountResetAt)) {
-      user = await prisma.user.update({
-        where: { id: session.userId },
-        data: { postCount: 0, postCountResetAt: new Date() },
-      })
-    }
-
-    const limit = getPostLimit(user.plan)
-    if (user.postCount >= limit) {
+  if (!isDeveloper) {
+    // 베타 한도 체크 (5회)
+    if (user.betaCount >= BETA_LIMIT) {
       return Response.json(
-        { error: `이번 달 생성 한도(${limit}회)를 초과했습니다. 플랜을 업그레이드해주세요.`, limitExceeded: true },
+        { error: '베타 테스트 횟수를 모두 사용했어요. 정식 출시 시 알림을 받으시겠어요?', betaExceeded: true },
         { status: 429 }
       )
+    }
+
+    // 유료 플랜 사용자만 월별 한도 체크 (베타 기간 중 무료 사용자는 betaCount로만 제한)
+    if (user.plan !== 'free') {
+      if (isNewMonth(user.postCountResetAt)) {
+        user = await prisma.user.update({
+          where: { id: session.userId },
+          data: { postCount: 0, postCountResetAt: new Date() },
+        })
+      }
+
+      const limit = getPostLimit(user.plan)
+      if (user.postCount >= limit) {
+        return Response.json(
+          { error: `이번 달 생성 한도(${limit}회)를 초과했습니다. 플랜을 업그레이드해주세요.`, limitExceeded: true },
+          { status: 429 }
+        )
+      }
     }
   }
 
