@@ -130,8 +130,43 @@ export default function TermsPage() {
           </p>
         </Card>
 
-        {/* 6. 약관 변경 */}
-        <Card title="6. 약관 변경">
+        {/* 6. 환불 정책 */}
+        <Card title="6. 환불 정책">
+          <div className="rounded-lg bg-blue-50 px-4 py-3 ring-1 ring-blue-100 mb-4 text-xs text-blue-700 leading-relaxed">
+            유료 플랜 결제 후 환불은 아래 기준에 따라 처리됩니다.
+          </div>
+          <ul className="space-y-3 text-sm text-gray-700">
+            {[
+              {
+                title: '결제 당일 전액 환불',
+                desc: '결제일 당일 서비스를 이용하지 않은 경우, 결제 취소(전액 환불)를 요청하실 수 있습니다.',
+              },
+              {
+                title: '결제 후 7일 이내 부분 환불',
+                desc: '결제일로부터 7일 이내에 환불을 요청하시는 경우, 이미 사용한 기능 이용 횟수를 제외한 금액을 환불합니다.',
+              },
+              {
+                title: '결제 후 7일 초과 환불 불가',
+                desc: '결제일로부터 7일이 지난 경우 환불이 불가합니다. 단, 서비스 장애 등 운영자 귀책 사유가 있는 경우는 예외적으로 처리합니다.',
+              },
+              {
+                title: '환불 신청 방법',
+                desc: 'a01067709308@gmail.com으로 결제 이메일 및 환불 사유를 보내주시면 영업일 기준 3일 이내에 처리됩니다.',
+              },
+            ].map((item) => (
+              <li key={item.title} className="flex gap-2">
+                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-blue-400 mt-[7px]" />
+                <span>
+                  <strong className="text-gray-900">{item.title}:</strong>{' '}
+                  {item.desc}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </Card>
+
+        {/* 7. 약관 변경 */}
+        <Card title="7. 약관 변경">
           <p className="text-sm text-gray-700 leading-relaxed">
             운영자는 필요한 경우 본 약관을 변경할 수 있습니다. 변경 사항은 서비스 내 공지사항을 통해
             최소 7일 전 공지하며, 중요 변경의 경우 가입 시 등록한 이메일로 별도 통지합니다.
