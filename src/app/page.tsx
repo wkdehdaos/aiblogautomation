@@ -168,6 +168,11 @@ export default function BlogFormPage() {
   const [waitlistSubmitting, setWaitlistSubmitting] = useState(false)
   const [waitlistDone, setWaitlistDone] = useState(false)
 
+  const [isGenerated, setIsGenerated] = useState(false)
+  const [isEditing, setIsEditing] = useState(false)
+  const [editTitle, setEditTitle] = useState('')
+  const editRef = useRef<HTMLDivElement>(null)
+
   const dragIndexRef = useRef<number | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const rightColRef = useRef<HTMLDivElement>(null)
