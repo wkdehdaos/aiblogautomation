@@ -200,22 +200,37 @@ export async function publishToNaver(
       await snap(editorPage, '블로그홈', 1)
     })
 
-    // ── 2. 글쓰기 클릭 ───────────────────────────────────────────────
+    // ── 2. 글쓰기 이동 ───────────────────────────────────────────────
     await step('글쓰기클릭', async () => {
-      const [newPage] = await Promise.all([
-        context.waitForEvent('page', { timeout: 6000 }).catch(() => null),
-        page.click('a[href*="PostWriteForm"], a:has-text("글쓰기"), button:has-text("글쓰기")', { timeout: 10000 }),
-      ])
-      if (newPage) {
-        // NID_AUT 자동 재인증 리다이렉트 완료까지 대기 (nid.naver.com → PostWriteForm)
-        await newPage.waitForURL(
-          url => !url.href.includes('nid.naver.com') && !url.href.includes('nidlogin'),
-          { timeout: 20000 }
-        ).catch(() => {})
-        editorPage = newPage
+      const WRITE_URL = 'https://blog.naver.com/GoBlogWrite.naver'
+
+      // 1순위: JS 클릭으로 새 탭 유도 (요소가 CSS로 숨겨져도 JS click은 동작)
+      const newPagePromise = context.waitForEvent('page', { timeout: 5000 }).catch(() => null)
+      const jsClicked = await page.evaluate(() => {
+        const a = document.querySelector<HTMLAnchorElement>(
+          'a[href*="GoBlogWrite"], a[href*="PostWriteForm"]'
+        )
+        if (a) { a.click(); return true }
+        return false
+      }).catch(() => false)
+
+      const newPageFromClick = jsClicked ? await newPagePromise : null
+
+      if (newPageFromClick) {
+        editorPage = newPageFromClick
       } else {
-        await page.waitForURL(/PostWriteForm|Redirect=Write/, { timeout: 15000 })
+        // 2순위: 직접 새 페이지 생성 후 이동
+        console.log('[글쓰기] JS 클릭 실패 → 직접 새 탭으로 이동')
+        const directPage = await context.newPage()
+        await directPage.goto(WRITE_URL, { waitUntil: 'domcontentloaded' })
+        editorPage = directPage
       }
+
+      // NID_AUT 자동 재인증 리다이렉트 완료까지 대기
+      await editorPage.waitForURL(
+        url => !url.href.includes('nid.naver.com') && !url.href.includes('nidlogin'),
+        { timeout: 20000 }
+      ).catch(() => {})
     })
 
     // ── 3. 에디터 로드 대기 ──────────────────────────────────────────
