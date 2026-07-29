@@ -767,37 +767,57 @@ export default function BlogFormPage() {
           </form>
         </div>
 
-        {/* ────── RIGHT : 미리보기 ────── */}
-        <div ref={rightColRef}
-          className="w-full md:w-1/2 md:h-[calc(100vh-var(--nav-h))] md:overflow-y-auto"
-          style={{ background: 'var(--surface-2)', padding: '20px' }}>
+        {/* ────── RIGHT : 미리보기 (생성 후에만 표시) ────── */}
+        {isGenerated && result && (
+          <div
+            ref={rightColRef}
+            key="preview-panel"
+            className="slide-in-right w-full md:w-1/2 md:h-[calc(100vh-var(--nav-h))] md:overflow-y-auto"
+            style={{ background: 'var(--surface-2)', padding: '20px' }}
+          >
+            <SL>생성 결과 미리보기</SL>
 
-          <SL>생성 결과 미리보기</SL>
-
-          {!result ? (
-            <div className="flex h-[60vh] flex-col items-center justify-center text-center md:h-full">
-              <div className="mb-3 text-3xl opacity-30">✍️</div>
-              <p className="text-[13px]" style={{ color: 'var(--text-muted)' }}>좌측에서 정보를 입력하고</p>
-              <p className="text-[13px]" style={{ color: 'var(--text-muted)' }}>글 작성 버튼을 눌러주세요</p>
-            </div>
-          ) : (
             <div className="flex flex-col">
-              {/* 제목 */}
-              <h2 className="mb-3 text-[15px] font-medium leading-[1.5]" style={{ color: 'var(--text-primary)' }}>
-                {result.title}
-              </h2>
 
-              {/* 본문 */}
-              <div
-                className="mb-3 text-[13px] leading-[1.8]
-                  [&_h2]:mb-2 [&_h2]:mt-5 [&_h2]:text-base [&_h2]:font-bold [&_h2]:text-gray-900
-                  [&_h3]:mb-1 [&_h3]:mt-4 [&_h3]:text-sm [&_h3]:font-semibold [&_h3]:text-gray-800
-                  [&_li]:mt-1 [&_p]:mt-2 [&_p]:leading-relaxed
-                  [&_strong]:font-semibold [&_strong]:text-gray-900
-                  [&_ul]:mt-2 [&_ul]:list-disc [&_ul]:pl-5"
-                style={{ color: 'var(--text-secondary)' }}
-                dangerouslySetInnerHTML={{ __html: renderContentWithImages(result.content, result.photos, mosaicUrls, mosaicEnabled) }}
-              />
+              {/* ── 편집 모드 ── */}
+              {isEditing ? (
+                <>
+                  <input
+                    value={editTitle}
+                    onChange={e => setEditTitle(e.target.value)}
+                    className="mb-3 w-full rounded-[var(--radius)] border border-[var(--border-accent)] bg-[var(--bg-accent)] px-3 py-2 text-[15px] font-medium outline-none"
+                    style={{ color: 'var(--text-primary)' }}
+                  />
+                  <div
+                    ref={editRef}
+                    contentEditable
+                    suppressContentEditableWarning
+                    className="mb-3 min-h-[200px] rounded-[var(--radius)] border border-[var(--border-accent)] bg-[var(--bg-accent)] p-3 text-[13px] leading-[1.8] outline-none
+                      [&_h2]:mb-2 [&_h2]:mt-5 [&_h2]:text-base [&_h2]:font-bold
+                      [&_h3]:mb-1 [&_h3]:mt-4 [&_h3]:text-sm [&_h3]:font-semibold
+                      [&_p]:mt-2 [&_p]:leading-relaxed [&_li]:mt-1
+                      [&_ul]:mt-2 [&_ul]:list-disc [&_ul]:pl-5"
+                    style={{ color: 'var(--text-secondary)' }}
+                  />
+                </>
+              ) : (
+                /* ── 읽기 모드 ── */
+                <>
+                  <h2 className="mb-3 text-[15px] font-medium leading-[1.5]" style={{ color: 'var(--text-primary)' }}>
+                    {result.title}
+                  </h2>
+                  <div
+                    className="mb-3 text-[13px] leading-[1.8]
+                      [&_h2]:mb-2 [&_h2]:mt-5 [&_h2]:text-base [&_h2]:font-bold [&_h2]:text-gray-900
+                      [&_h3]:mb-1 [&_h3]:mt-4 [&_h3]:text-sm [&_h3]:font-semibold [&_h3]:text-gray-800
+                      [&_li]:mt-1 [&_p]:mt-2 [&_p]:leading-relaxed
+                      [&_strong]:font-semibold [&_strong]:text-gray-900
+                      [&_ul]:mt-2 [&_ul]:list-disc [&_ul]:pl-5"
+                    style={{ color: 'var(--text-secondary)' }}
+                    dangerouslySetInnerHTML={{ __html: renderContentWithImages(result.content, result.photos, mosaicUrls, mosaicEnabled) }}
+                  />
+                </>
+              )}
 
               {/* 구분선 */}
               <div className="my-3 h-px" style={{ background: 'var(--border)' }} />
@@ -815,56 +835,73 @@ export default function BlogFormPage() {
               {/* 발행 상태 */}
               {publishStatus && (
                 <div className={`mb-2 rounded-[var(--radius)] px-3 py-2 text-[13px] font-medium ${
-                  publishStatus.type === 'success' ? 'bg-green-50 text-green-700 ring-1 ring-green-200' : 'bg-red-50 text-red-700 ring-1 ring-red-200'
+                  publishStatus.type === 'success'
+                    ? 'bg-green-50 text-green-700 ring-1 ring-green-200'
+                    : 'bg-red-50 text-red-700 ring-1 ring-red-200'
                 }`}>
                   {publishStatus.message}
                   {publishStatus.step && <span className="ml-1.5 text-[11px] opacity-70">(단계: {publishStatus.step})</span>}
                   {publishStatus.sessionExpired && (
-                    <a href="/naver-connect" className="ml-2 underline font-semibold hover:opacity-80">네이버 연결하기 →</a>
+                    <a href="/naver-connect" className="ml-2 font-semibold underline hover:opacity-80">네이버 연결하기 →</a>
                   )}
                 </div>
               )}
 
               {/* 액션 버튼 */}
               <div className="flex gap-2 border-t border-[var(--border)] pt-3">
-                <button type="button" disabled={isPublishing}
-                  onClick={() => {
-                    if (publishStatus?.type === 'success') {
-                      setResult(null)
-                      setPublishStatus(null)
-                      setForm(INITIAL_FORM)
-                    } else {
-                      setResult(null)
-                      setPublishStatus(null)
-                    }
-                  }}
-                  className="flex-1 rounded-[var(--radius)] border border-[var(--border)] py-2 text-[13px] transition hover:bg-[var(--surface-1)] disabled:opacity-50"
-                  style={{ color: 'var(--text-secondary)' }}>
-                  {publishStatus?.type === 'success' ? '새 글 작성' : '수정하기'}
-                </button>
 
-                {publishStatus?.type === 'error' && !publishStatus.sessionExpired && (
-                  <button type="button"
-                    onClick={() => { setShowErrorReport(true); setErrorReportDone(false); setErrorReportComment('') }}
-                    className="flex-1 rounded-[var(--radius)] border border-red-200 bg-red-50 py-2 text-[13px] font-medium text-red-600 transition hover:bg-red-100">
-                    오류 신고 🚨
+                {/* 새 글 작성 (발행 성공 후) */}
+                {publishStatus?.type === 'success' ? (
+                  <button type="button" onClick={handleNewPost}
+                    className="flex-1 rounded-[var(--radius)] border border-[var(--border)] py-2 text-[13px] transition hover:bg-[var(--surface-1)]"
+                    style={{ color: 'var(--text-secondary)' }}>
+                    새 글 작성하기
                   </button>
-                )}
+                ) : isEditing ? (
+                  /* 편집 모드 버튼 */
+                  <>
+                    <button type="button" onClick={() => setIsEditing(false)}
+                      className="flex-1 rounded-[var(--radius)] border border-[var(--border)] py-2 text-[13px] transition hover:bg-[var(--surface-1)]"
+                      style={{ color: 'var(--text-secondary)' }}>
+                      취소
+                    </button>
+                    <button type="button" onClick={handleSaveEdit}
+                      className="flex-1 rounded-[var(--radius)] py-2 text-[13px] font-medium transition"
+                      style={{ background: 'var(--fill-accent)', color: 'var(--on-accent)' }}>
+                      저장하기
+                    </button>
+                  </>
+                ) : (
+                  /* 기본 버튼 */
+                  <>
+                    <button type="button" disabled={isPublishing} onClick={handleEdit}
+                      className="flex-1 rounded-[var(--radius)] border border-[var(--border)] py-2 text-[13px] transition hover:bg-[var(--surface-1)] disabled:opacity-50"
+                      style={{ color: 'var(--text-secondary)' }}>
+                      수정하기
+                    </button>
 
-                {publishStatus?.type !== 'success' && (
-                  <button type="button" disabled={isPublishing} onClick={handlePublish}
-                    className="flex-1 rounded-[var(--radius)] py-2 text-[13px] font-medium transition disabled:opacity-60"
-                    style={{ background: 'var(--fill-accent)', color: 'var(--on-accent)' }}>
-                    {isPublishing ? (
-                      <span className="flex items-center justify-center gap-1.5">
-                        <svg className="h-3.5 w-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                        </svg>
-                        발행 중...
-                      </span>
-                    ) : '올리기'}
-                  </button>
+                    {publishStatus?.type === 'error' && !publishStatus.sessionExpired && (
+                      <button type="button"
+                        onClick={() => { setShowErrorReport(true); setErrorReportDone(false); setErrorReportComment('') }}
+                        className="flex-1 rounded-[var(--radius)] border border-red-200 bg-red-50 py-2 text-[13px] font-medium text-red-600 transition hover:bg-red-100">
+                        오류 신고 🚨
+                      </button>
+                    )}
+
+                    <button type="button" disabled={isPublishing} onClick={handlePublish}
+                      className="flex-1 rounded-[var(--radius)] py-2 text-[13px] font-medium transition disabled:opacity-60"
+                      style={{ background: 'var(--fill-accent)', color: 'var(--on-accent)' }}>
+                      {isPublishing ? (
+                        <span className="flex items-center justify-center gap-1.5">
+                          <svg className="h-3.5 w-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                          </svg>
+                          발행 중...
+                        </span>
+                      ) : '올리기'}
+                    </button>
+                  </>
                 )}
               </div>
 
@@ -873,9 +910,10 @@ export default function BlogFormPage() {
                   네이버에 발행 중이에요... 잠시 기다려주세요
                 </p>
               )}
+
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     </>
   )
