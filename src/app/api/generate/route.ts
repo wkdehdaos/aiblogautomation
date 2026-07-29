@@ -75,19 +75,22 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  if (isNewMonth(user.postCountResetAt)) {
-    user = await prisma.user.update({
-      where: { id: session.userId },
-      data: { postCount: 0, postCountResetAt: new Date() },
-    })
-  }
+  // 유료 플랜 사용자만 월별 한도 체크 (베타 기간 중 무료 사용자는 betaCount로만 제한)
+  if (user.plan !== 'free') {
+    if (isNewMonth(user.postCountResetAt)) {
+      user = await prisma.user.update({
+        where: { id: session.userId },
+        data: { postCount: 0, postCountResetAt: new Date() },
+      })
+    }
 
-  const limit = getPostLimit(user.plan)
-  if (user.postCount >= limit) {
-    return Response.json(
-      { error: `이번 달 생성 한도(${limit}회)를 초과했습니다. 플랜을 업그레이드해주세요.`, limitExceeded: true },
-      { status: 429 }
-    )
+    const limit = getPostLimit(user.plan)
+    if (user.postCount >= limit) {
+      return Response.json(
+        { error: `이번 달 생성 한도(${limit}회)를 초과했습니다. 플랜을 업그레이드해주세요.`, limitExceeded: true },
+        { status: 429 }
+      )
+    }
   }
 
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
