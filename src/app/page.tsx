@@ -199,6 +199,14 @@ export default function BlogFormPage() {
     if (result) rightColRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
   }, [result])
 
+  // contenteditable에 초기 내용 주입 (isEditing 진입 시)
+  useEffect(() => {
+    if (isEditing && editRef.current && result) {
+      editRef.current.innerHTML = renderContentWithImages(result.content, result.photos, mosaicUrls, mosaicEnabled)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isEditing])
+
   const set = <K extends keyof BlogFormData>(key: K, value: BlogFormData[K]) =>
     setForm(prev => ({ ...prev, [key]: value }))
 
