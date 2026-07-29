@@ -36,9 +36,9 @@ export default function LoginPage() {
 
   return (
     <div className="w-full max-w-sm">
-      <div className="mb-8 text-center">
-        <h1 className="text-2xl font-bold text-gray-900">로그인</h1>
-        <p className="mt-1 text-sm text-gray-500">계정에 로그인하세요</p>
+      <div className="mb-6 text-center">
+        <h1 className="text-xl font-semibold text-gray-800">로그인</h1>
+        <p className="mt-1 text-sm text-gray-400">계정에 로그인하세요</p>
       </div>
 
       <form onSubmit={handleSubmit} className="rounded-2xl bg-white p-8 shadow-sm ring-1 ring-gray-100 space-y-4">
