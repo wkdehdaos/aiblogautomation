@@ -11,20 +11,21 @@ function PaymentSuccessContent() {
   const [errorMsg, setErrorMsg] = useState('')
 
   useEffect(() => {
-    const authKey = searchParams.get('authKey')
-    const customerKey = searchParams.get('customerKey')
+    const paymentId = searchParams.get('paymentId')
     const plan = searchParams.get('plan') as Plan | null
 
-    if (!authKey || !customerKey || !plan || !PLANS[plan]) {
+    if (!paymentId || !plan || !PLANS[plan]) {
       setErrorMsg('잘못된 접근입니다.')
       setStatus('error')
       return
     }
 
-    fetch('/api/payment/billing-auth', {
+    const planInfo = PLANS[plan]
+
+    fetch('/api/payment/confirm', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ authKey, customerKey, plan }),
+      body: JSON.stringify({ paymentId, plan, expectedAmount: planInfo.price }),
     })
       .then(async (res) => {
         const data = await res.json() as { ok?: boolean; error?: string }
