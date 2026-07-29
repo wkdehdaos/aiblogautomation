@@ -12,6 +12,7 @@ interface BetaStatus {
 export default function PricingPage() {
   const router = useRouter()
   const [status, setStatus] = useState<BetaStatus | null>(null)
+  const [loggedIn, setLoggedIn] = useState(false)
   const [loading, setLoading] = useState(true)
   const [paying, setPaying] = useState<Plan | null>(null)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
@@ -22,7 +23,12 @@ export default function PricingPage() {
     fetch('/api/auth/me')
       .then(r => r.json())
       .then((d: { user?: { betaCount?: number; plan?: Plan } }) => {
-        setStatus({ betaCount: d.user?.betaCount ?? 0, plan: d.user?.plan ?? 'free' })
+        if (d.user) {
+          setLoggedIn(true)
+          setStatus({ betaCount: d.user.betaCount ?? 0, plan: d.user.plan ?? 'free' })
+        } else {
+          setStatus({ betaCount: 0, plan: 'free' })
+        }
       })
       .catch(() => setStatus({ betaCount: 0, plan: 'free' }))
       .finally(() => setLoading(false))
