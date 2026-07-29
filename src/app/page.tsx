@@ -336,11 +336,34 @@ export default function BlogFormPage() {
         ? data.successIndices.map(i => form.photos[i]).filter(Boolean)
         : form.photos
       setResult({ title: data.title, content: data.content, photos: resultPhotos })
+      setIsGenerated(true)
+      setIsEditing(false)
     } catch (err) {
       alert(`글 생성 중 오류가 발생했습니다.\n${err instanceof Error ? err.message : ''}`)
     } finally {
       setIsLoading(false)
     }
+  }
+
+  const handleEdit = () => {
+    if (!result) return
+    setEditTitle(result.title)
+    setIsEditing(true)
+  }
+
+  const handleSaveEdit = () => {
+    if (editRef.current && result) {
+      setResult({ ...result, title: editTitle, content: editRef.current.innerHTML })
+    }
+    setIsEditing(false)
+  }
+
+  const handleNewPost = () => {
+    setResult(null)
+    setPublishStatus(null)
+    setForm(INITIAL_FORM)
+    setIsGenerated(false)
+    setIsEditing(false)
   }
 
   const handlePublish = async () => {
