@@ -133,6 +133,7 @@ const SL = ({ children }: { children: React.ReactNode }) => (
 
 export default function BlogFormPage() {
   const router = useRouter()
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null)
   const [naverConnected, setNaverConnected] = useState<boolean | null>(null)
   const [naverUploadedAt, setNaverUploadedAt] = useState<string | null>(null)
   const [betaStatus, setBetaStatus] = useState<{ userCount: number; maxUsers: number } | null>(null)
