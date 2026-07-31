@@ -323,6 +323,7 @@ export default function BlogFormPage() {
       const fd = new FormData()
       fd.append('businessName', form.businessName)
       fd.append('businessInfo', form.businessInfo)
+      fd.append('address', form.address)
       fd.append('keywords', JSON.stringify(form.keywords))
       fd.append('lengthOption', 'medium')
       fd.append('customLength', '')
