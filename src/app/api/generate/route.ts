@@ -115,6 +115,7 @@ export async function POST(req: NextRequest) {
     const mustExclude = (formData.get('mustExclude') as string) || ''
     const titleHint = (formData.get('title') as string) || ''
 
+    const address = (formData.get('address') as string) || ''
     const photoFiles = formData.getAll('photos') as File[]
 
     const results = await Promise.allSettled(photoFiles.map(toImageBlock))
