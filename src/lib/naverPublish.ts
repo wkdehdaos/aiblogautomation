@@ -674,7 +674,7 @@ export async function publishToNaver(
               for (const input of inputs) {
                 try {
                   await input.setInputFiles([imgPath])
-                  await editorPage.waitForTimeout(5000)
+                  await editorPage.waitForTimeout(3000)
                   uploaded = true
                   console.log(`[img] ${section.idx + 1}번 setInputFiles 성공`)
                   break
