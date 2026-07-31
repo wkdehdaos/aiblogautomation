@@ -239,7 +239,7 @@ export async function publishToNaver(
     // ── 3. 에디터 로드 대기 ──────────────────────────────────────────
     await step('에디터로드대기', async () => {
       await editorPage.waitForLoadState('networkidle', { timeout: 20000 }).catch(() => {})
-      await editorPage.waitForTimeout(1000)
+      await editorPage.waitForTimeout(2000)
 
       // 세션 만료 감지 — networkidle 완료 후에도 로그인 페이지면 진짜 만료
       const currentUrl = editorPage.url()
