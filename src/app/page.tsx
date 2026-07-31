@@ -173,6 +173,7 @@ export default function BlogFormPage() {
   const [waitlistDone, setWaitlistDone] = useState(false)
 
   const [isGenerated, setIsGenerated] = useState(false)
+  const [streamingContent, setStreamingContent] = useState('')
   const [isEditing, setIsEditing] = useState(false)
   const [editTitle, setEditTitle] = useState('')
   const editRef = useRef<HTMLDivElement>(null)
