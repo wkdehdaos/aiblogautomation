@@ -26,6 +26,8 @@ export default function Footer() {
             <Link href="/privacy" className="text-xs text-gray-400 hover:text-indigo-500 transition">개인정보처리방침</Link>
             <span className="text-gray-200">|</span>
             <Link href="/terms" className="text-xs text-gray-400 hover:text-indigo-500 transition">이용약관</Link>
+            <span className="text-gray-200">|</span>
+            <Link href="/terms#refund" className="text-xs text-gray-400 hover:text-indigo-500 transition">환불정책</Link>
           </div>
         </div>
       </div>
