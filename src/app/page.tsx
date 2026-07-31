@@ -413,10 +413,23 @@ export default function BlogFormPage() {
     setStreamingContent('')
   }
 
+  const PUBLISH_STEP_LABELS: Record<string, string> = {
+    '블로그홈이동': '블로그 홈 이동 중',
+    '글쓰기클릭': '글쓰기 페이지 열기',
+    '에디터로드대기': '에디터 로딩 중',
+    '제목입력': '제목 입력 중',
+    '본문및이미지입력': '본문 · 이미지 업로드 중',
+    '위치지도삽입': '위치 정보 삽입 중',
+    '발행버튼클릭': '발행 버튼 클릭 중',
+    '공개설정팝업': '공개 설정 중',
+    '최종발행확인': '최종 발행 처리 중',
+  }
+
   const handlePublish = async () => {
     if (!result) return
     setIsPublishing(true)
     setPublishStatus(null)
+    setPublishStep('')
     try {
       const images = await Promise.all(
         result.photos.map(p => {
@@ -434,25 +447,50 @@ export default function BlogFormPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title: result.title, content: result.content, images, font: selectedFont, location: form.address }),
       })
-      const data = await res.json() as { success: boolean; error?: string; lastStep?: string }
-      if (data.success) {
-        setPublishStatus({ type: 'success', message: '발행 완료! 네이버 블로그에서 확인해보세요.' })
-        setShowFeedback(true)
-        setFeedbackRating(0)
-        setFeedbackComment('')
-        setFeedbackDone(false)
-      } else {
-        const isSessionExpired = data.error?.includes('세션') || data.error?.includes('로그인') || data.lastStep === '세션 로드'
-        const message = isSessionExpired
-          ? '네이버 세션이 만료됐습니다. 네이버 계정을 다시 연결해주세요.'
-          : (data.error ?? '발행 실패')
-        setPublishStatus({ type: 'error', message, step: data.lastStep, sessionExpired: isSessionExpired })
-        if (isSessionExpired) setNaverConnected(false)
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({})) as { error?: string; lastStep?: string }
+        throw new Error(err.error ?? `HTTP ${res.status}`)
+      }
+
+      const reader = res.body!.getReader()
+      const decoder = new TextDecoder()
+      let buf = ''
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buf += decoder.decode(value, { stream: true })
+        const lines = buf.split('\n')
+        buf = lines.pop() ?? ''
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue
+          try {
+            const ev = JSON.parse(line.slice(6)) as { type: string; step?: string; success?: boolean; error?: string; lastStep?: string }
+            if (ev.type === 'progress' && ev.step) {
+              setPublishStep(PUBLISH_STEP_LABELS[ev.step] ?? ev.step)
+            } else if (ev.type === 'done') {
+              if (ev.success) {
+                setPublishStatus({ type: 'success', message: '발행 완료! 네이버 블로그에서 확인해보세요.' })
+                setShowFeedback(true)
+                setFeedbackRating(0)
+                setFeedbackComment('')
+                setFeedbackDone(false)
+              } else {
+                const isSessionExpired = ev.error?.includes('세션') || ev.error?.includes('로그인') || ev.lastStep === '세션 로드'
+                const message = isSessionExpired
+                  ? '네이버 세션이 만료됐습니다. 네이버 계정을 다시 연결해주세요.'
+                  : (ev.error ?? '발행 실패')
+                setPublishStatus({ type: 'error', message, step: ev.lastStep, sessionExpired: isSessionExpired })
+                if (isSessionExpired) setNaverConnected(false)
+              }
+            }
+          } catch { /* JSON parse error */ }
+        }
       }
     } catch (err) {
       setPublishStatus({ type: 'error', message: err instanceof Error ? err.message : '알 수 없는 오류' })
     } finally {
       setIsPublishing(false)
+      setPublishStep('')
     }
   }
 
