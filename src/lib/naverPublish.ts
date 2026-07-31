@@ -191,6 +191,7 @@ export async function publishToNaver(
   const step = async (label: string, fn: () => Promise<void>) => {
     lastStep = label
     stepIndex++
+    onProgress?.(label)
     try {
       await fn()
       await snap(editorPage, label, stepIndex)
