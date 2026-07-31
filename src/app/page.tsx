@@ -496,6 +496,7 @@ export default function BlogFormPage() {
     } finally {
       setIsPublishing(false)
       setPublishStep('')
+      setPublishProgress(0)
     }
   }
 
