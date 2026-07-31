@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation'
 export default function Nav() {
   const router = useRouter()
   const [user, setUser] = useState<{ name: string | null; email: string } | null>(null)
+  const [checked, setChecked] = useState(false)
 
   useEffect(() => {
     fetch('/api/auth/me')
@@ -15,9 +16,37 @@ export default function Nav() {
         if (d.user) setUser(d.user)
       })
       .catch(() => {})
+      .finally(() => setChecked(true))
   }, [])
 
-  if (!user) return null
+  if (!checked) return null
+
+  if (!user) {
+    return (
+      <nav
+        className="flex shrink-0 items-center justify-between px-5"
+        style={{ background: '#4f46e5', height: 'var(--nav-h)' }}
+      >
+        <Link href="/" className="text-[18px] font-medium tracking-tight text-white">
+          Blog<span style={{ color: '#a5b4fc' }}>dy</span>
+        </Link>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/login"
+            className="rounded border border-white/20 px-3 py-1 text-[13px] text-white/80 transition hover:border-white/40 hover:text-white"
+          >
+            로그인
+          </Link>
+          <Link
+            href="/register"
+            className="rounded border border-white/30 bg-white/10 px-3 py-1 text-[13px] font-medium text-white transition hover:bg-white/20"
+          >
+            회원가입
+          </Link>
+        </div>
+      </nav>
+    )
+  }
 
   const handleLogout = async () => {
     await fetch('/api/auth/logout', { method: 'POST' })
