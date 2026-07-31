@@ -414,16 +414,16 @@ export default function BlogFormPage() {
     setStreamingContent('')
   }
 
-  const PUBLISH_STEP_LABELS: Record<string, string> = {
-    '블로그홈이동': '블로그 홈 이동 중',
-    '글쓰기클릭': '글쓰기 페이지 열기',
-    '에디터로드대기': '에디터 로딩 중',
-    '제목입력': '제목 입력 중',
-    '본문및이미지입력': '본문 · 이미지 업로드 중',
-    '위치지도삽입': '위치 정보 삽입 중',
-    '발행버튼클릭': '발행 버튼 클릭 중',
-    '공개설정팝업': '공개 설정 중',
-    '최종발행확인': '최종 발행 처리 중',
+  const PUBLISH_STEPS: Record<string, { label: string; pct: number }> = {
+    '블로그홈이동':    { label: '블로그 홈 이동 중',       pct: 10 },
+    '글쓰기클릭':     { label: '글쓰기 페이지 열기',       pct: 20 },
+    '에디터로드대기': { label: '에디터 로딩 중',           pct: 32 },
+    '제목입력':       { label: '제목 입력 중',             pct: 46 },
+    '본문및이미지입력':{ label: '본문 · 이미지 업로드 중', pct: 62 },
+    '위치지도삽입':   { label: '위치 정보 삽입 중',        pct: 72 },
+    '발행버튼클릭':   { label: '발행 버튼 클릭 중',        pct: 82 },
+    '공개설정팝업':   { label: '공개 설정 중',             pct: 90 },
+    '최종발행확인':   { label: '최종 발행 처리 중',         pct: 96 },
   }
 
   const handlePublish = async () => {
