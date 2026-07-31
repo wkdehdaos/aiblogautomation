@@ -10,7 +10,7 @@ export async function proxy(req: NextRequest) {
     return NextResponse.next()
   }
 
-  if (PUBLIC_PATHS.some((p) => pathname.startsWith(p))) {
+  if (pathname === '/' || PUBLIC_PATHS.some((p) => pathname.startsWith(p))) {
     return NextResponse.next()
   }
 
