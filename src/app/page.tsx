@@ -273,6 +273,7 @@ export default function BlogFormPage() {
     setForm({
       businessName: '홍길동 뷔페',
       businessInfo: '경기도 파주시 소재 패밀리 뷔페. 한식·양식·중식·디저트 코너 운영. 영업시간 11:00~21:30. 즉석 조리 코너(스테이크, 초밥, 우동) 운영. 주차 100대 가능. 미취학 아동 무료.',
+      address: '경기도 파주시 금촌1동 금릉역로 17',
       photos: [],
       keywords: ['파주 뷔페', '파주 가족외식', '파주 무한리필'],
       tone: 'friendly',
