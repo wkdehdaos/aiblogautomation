@@ -1040,15 +1040,22 @@ export default function BlogFormPage() {
                   </div>
 
                   {isPublishing && (
-                    <div className="mt-2 text-center">
-                      <p className="text-[12px]" style={{ color: 'var(--text-muted)' }}>
-                        네이버에 발행 중이에요... 잠시 기다려주세요
-                      </p>
-                      {publishStep && (
-                        <p className="mt-1 animate-pulse text-[11px] font-medium" style={{ color: 'var(--text-accent)' }}>
-                          ▸ {publishStep}
+                    <div className="mt-3">
+                      {/* 진행 막대 */}
+                      <div className="mb-2 h-1.5 w-full overflow-hidden rounded-full" style={{ background: 'var(--border)' }}>
+                        <div
+                          className="h-full rounded-full transition-all duration-700 ease-out"
+                          style={{ width: `${publishProgress}%`, background: 'var(--fill-accent)' }}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
+                          {publishStep ? <span className="animate-pulse">▸ {publishStep}</span> : '발행 준비 중...'}
                         </p>
-                      )}
+                        <p className="text-[11px] font-medium tabular-nums" style={{ color: 'var(--text-accent)' }}>
+                          {publishProgress}%
+                        </p>
+                      </div>
                     </div>
                   )}
                 </>
