@@ -956,7 +956,7 @@ export async function publishToNaver(
         url => { const s = url.toString(); return /\/\d{10,}/.test(s) || (!s.includes('PostWriteForm') && !s.includes('Redirect=Write')) },
         { timeout: 15000 }
       ).catch(() => {})
-      await editorPage.waitForTimeout(1000)
+      await editorPage.waitForTimeout(300)
     })
 
     const finalUrl = editorPage.url()
