@@ -816,9 +816,9 @@ export async function publishToNaver(
     await step('발행버튼클릭', async () => {
       // 이미지 패널 포함 모든 팝업 닫기
       await editorPage.keyboard.press('Escape').catch(() => {})
-      await editorPage.waitForTimeout(500)
+      await editorPage.waitForTimeout(300)
       await editorPage.keyboard.press('Escape').catch(() => {})
-      await editorPage.waitForTimeout(800)
+      await editorPage.waitForTimeout(300)
 
       // PostWriteForm 프레임 직접 탐색 (editorCtx가 stale일 수 있으므로)
       const pwfFrame = editorPage.frames().find(f => f.url().includes('PostWriteForm'))
