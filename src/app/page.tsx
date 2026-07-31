@@ -908,96 +908,98 @@ export default function BlogFormPage() {
                     </>
                   )}
 
-              {/* 구분선 */}
-              <div className="my-3 h-px" style={{ background: 'var(--border)' }} />
+                  {/* 구분선 */}
+                  <div className="my-3 h-px" style={{ background: 'var(--border)' }} />
 
-              {/* 서체 선택 */}
-              <div className="mb-2">
-                <label className="mb-[5px] block text-[13px]" style={{ color: 'var(--text-secondary)' }}>서체</label>
-                <select value={selectedFont} onChange={e => setSelectedFont(e.target.value)} className={inputCls}>
-                  {['나눔고딕', '나눔명조', '나눔바른고딕', '나눔스퀘어', '맑은 고딕', '돋움', '굴림', '바탕', '궁서'].map(f => (
-                    <option key={f} value={f}>{f}</option>
-                  ))}
-                </select>
-              </div>
+                  {/* 서체 선택 */}
+                  <div className="mb-2">
+                    <label className="mb-[5px] block text-[13px]" style={{ color: 'var(--text-secondary)' }}>서체</label>
+                    <select value={selectedFont} onChange={e => setSelectedFont(e.target.value)} className={inputCls}>
+                      {['나눔고딕', '나눔명조', '나눔바른고딕', '나눔스퀘어', '맑은 고딕', '돋움', '굴림', '바탕', '궁서'].map(f => (
+                        <option key={f} value={f}>{f}</option>
+                      ))}
+                    </select>
+                  </div>
 
-              {/* 발행 상태 */}
-              {publishStatus && (
-                <div className={`mb-2 rounded-[var(--radius)] px-3 py-2 text-[13px] font-medium ${
-                  publishStatus.type === 'success'
-                    ? 'bg-green-50 text-green-700 ring-1 ring-green-200'
-                    : 'bg-red-50 text-red-700 ring-1 ring-red-200'
-                }`}>
-                  {publishStatus.message}
-                  {publishStatus.step && <span className="ml-1.5 text-[11px] opacity-70">(단계: {publishStatus.step})</span>}
-                  {publishStatus.sessionExpired && (
-                    <a href="/naver-connect" className="ml-2 font-semibold underline hover:opacity-80">네이버 연결하기 →</a>
+                  {/* 발행 상태 */}
+                  {publishStatus && (
+                    <div className={`mb-2 rounded-[var(--radius)] px-3 py-2 text-[13px] font-medium ${
+                      publishStatus.type === 'success'
+                        ? 'bg-green-50 text-green-700 ring-1 ring-green-200'
+                        : 'bg-red-50 text-red-700 ring-1 ring-red-200'
+                    }`}>
+                      {publishStatus.message}
+                      {publishStatus.step && <span className="ml-1.5 text-[11px] opacity-70">(단계: {publishStatus.step})</span>}
+                      {publishStatus.sessionExpired && (
+                        <a href="/naver-connect" className="ml-2 font-semibold underline hover:opacity-80">네이버 연결하기 →</a>
+                      )}
+                    </div>
                   )}
-                </div>
-              )}
 
-              {/* 액션 버튼 */}
-              <div className="flex gap-2 border-t border-[var(--border)] pt-3">
+                  {/* 액션 버튼 */}
+                  <div className="flex gap-2 border-t border-[var(--border)] pt-3">
 
-                {/* 새 글 작성 (발행 성공 후) */}
-                {publishStatus?.type === 'success' ? (
-                  <button type="button" onClick={handleNewPost}
-                    className="flex-1 rounded-[var(--radius)] border border-[var(--border)] py-2 text-[13px] transition hover:bg-[var(--surface-1)]"
-                    style={{ color: 'var(--text-secondary)' }}>
-                    새 글 작성하기
-                  </button>
-                ) : isEditing ? (
-                  /* 편집 모드 버튼 */
-                  <>
-                    <button type="button" onClick={() => setIsEditing(false)}
-                      className="flex-1 rounded-[var(--radius)] border border-[var(--border)] py-2 text-[13px] transition hover:bg-[var(--surface-1)]"
-                      style={{ color: 'var(--text-secondary)' }}>
-                      취소
-                    </button>
-                    <button type="button" onClick={handleSaveEdit}
-                      className="flex-1 rounded-[var(--radius)] py-2 text-[13px] font-medium transition"
-                      style={{ background: 'var(--fill-accent)', color: 'var(--on-accent)' }}>
-                      저장하기
-                    </button>
-                  </>
-                ) : (
-                  /* 기본 버튼 */
-                  <>
-                    <button type="button" disabled={isPublishing} onClick={handleEdit}
-                      className="flex-1 rounded-[var(--radius)] border border-[var(--border)] py-2 text-[13px] transition hover:bg-[var(--surface-1)] disabled:opacity-50"
-                      style={{ color: 'var(--text-secondary)' }}>
-                      수정하기
-                    </button>
-
-                    {publishStatus?.type === 'error' && !publishStatus.sessionExpired && (
-                      <button type="button"
-                        onClick={() => { setShowErrorReport(true); setErrorReportDone(false); setErrorReportComment('') }}
-                        className="flex-1 rounded-[var(--radius)] border border-red-200 bg-red-50 py-2 text-[13px] font-medium text-red-600 transition hover:bg-red-100">
-                        오류 신고 🚨
+                    {/* 새 글 작성 (발행 성공 후) */}
+                    {publishStatus?.type === 'success' ? (
+                      <button type="button" onClick={handleNewPost}
+                        className="flex-1 rounded-[var(--radius)] border border-[var(--border)] py-2 text-[13px] transition hover:bg-[var(--surface-1)]"
+                        style={{ color: 'var(--text-secondary)' }}>
+                        새 글 작성하기
                       </button>
+                    ) : isEditing ? (
+                      /* 편집 모드 버튼 */
+                      <>
+                        <button type="button" onClick={() => setIsEditing(false)}
+                          className="flex-1 rounded-[var(--radius)] border border-[var(--border)] py-2 text-[13px] transition hover:bg-[var(--surface-1)]"
+                          style={{ color: 'var(--text-secondary)' }}>
+                          취소
+                        </button>
+                        <button type="button" onClick={handleSaveEdit}
+                          className="flex-1 rounded-[var(--radius)] py-2 text-[13px] font-medium transition"
+                          style={{ background: 'var(--fill-accent)', color: 'var(--on-accent)' }}>
+                          저장하기
+                        </button>
+                      </>
+                    ) : (
+                      /* 기본 버튼 */
+                      <>
+                        <button type="button" disabled={isPublishing} onClick={handleEdit}
+                          className="flex-1 rounded-[var(--radius)] border border-[var(--border)] py-2 text-[13px] transition hover:bg-[var(--surface-1)] disabled:opacity-50"
+                          style={{ color: 'var(--text-secondary)' }}>
+                          수정하기
+                        </button>
+
+                        {publishStatus?.type === 'error' && !publishStatus.sessionExpired && (
+                          <button type="button"
+                            onClick={() => { setShowErrorReport(true); setErrorReportDone(false); setErrorReportComment('') }}
+                            className="flex-1 rounded-[var(--radius)] border border-red-200 bg-red-50 py-2 text-[13px] font-medium text-red-600 transition hover:bg-red-100">
+                            오류 신고 🚨
+                          </button>
+                        )}
+
+                        <button type="button" disabled={isPublishing} onClick={handlePublish}
+                          className="flex-1 rounded-[var(--radius)] py-2 text-[13px] font-medium transition disabled:opacity-60"
+                          style={{ background: 'var(--fill-accent)', color: 'var(--on-accent)' }}>
+                          {isPublishing ? (
+                            <span className="flex items-center justify-center gap-1.5">
+                              <svg className="h-3.5 w-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                              </svg>
+                              발행 중...
+                            </span>
+                          ) : '올리기'}
+                        </button>
+                      </>
                     )}
+                  </div>
 
-                    <button type="button" disabled={isPublishing} onClick={handlePublish}
-                      className="flex-1 rounded-[var(--radius)] py-2 text-[13px] font-medium transition disabled:opacity-60"
-                      style={{ background: 'var(--fill-accent)', color: 'var(--on-accent)' }}>
-                      {isPublishing ? (
-                        <span className="flex items-center justify-center gap-1.5">
-                          <svg className="h-3.5 w-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                          </svg>
-                          발행 중...
-                        </span>
-                      ) : '올리기'}
-                    </button>
-                  </>
-                )}
-              </div>
-
-              {isPublishing && (
-                <p className="mt-2 text-center text-[12px]" style={{ color: 'var(--text-muted)' }}>
-                  네이버에 발행 중이에요... 잠시 기다려주세요
-                </p>
+                  {isPublishing && (
+                    <p className="mt-2 text-center text-[12px]" style={{ color: 'var(--text-muted)' }}>
+                      네이버에 발행 중이에요... 잠시 기다려주세요
+                    </p>
+                  )}
+                </>
               )}
 
             </div>
