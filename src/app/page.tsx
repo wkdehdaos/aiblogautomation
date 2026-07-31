@@ -182,8 +182,11 @@ export default function BlogFormPage() {
   useEffect(() => {
     fetch('/api/auth/me')
       .then(r => r.json())
-      .then((d: { user?: { betaCount?: number } }) => { setBetaUsed(d.user?.betaCount ?? 0) })
-      .catch(() => {})
+      .then((d: { user?: { betaCount?: number } }) => {
+        setIsLoggedIn(!!d.user)
+        setBetaUsed(d.user?.betaCount ?? 0)
+      })
+      .catch(() => { setIsLoggedIn(false) })
     fetch('/api/naver/status')
       .then(r => r.json())
       .then((d: { connected?: boolean; sessionUploadedAt?: string | null }) => {
