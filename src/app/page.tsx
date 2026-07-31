@@ -837,7 +837,7 @@ export default function BlogFormPage() {
         </div>
 
         {/* ────── RIGHT : 미리보기 (생성 후에만 표시) ────── */}
-        {isGenerated && result && (
+        {isGenerated && (
           <div
             ref={rightColRef}
             key="preview-panel"
@@ -848,33 +848,12 @@ export default function BlogFormPage() {
 
             <div className="flex flex-col">
 
-              {/* ── 편집 모드 ── */}
-              {isEditing ? (
+              {/* ── 스트리밍 중 ── */}
+              {!result ? (
                 <>
-                  <input
-                    value={editTitle}
-                    onChange={e => setEditTitle(e.target.value)}
-                    className="mb-3 w-full rounded-[var(--radius)] border border-[var(--border-accent)] bg-[var(--bg-accent)] px-3 py-2 text-[15px] font-medium outline-none"
-                    style={{ color: 'var(--text-primary)' }}
-                  />
-                  <div
-                    ref={editRef}
-                    contentEditable
-                    suppressContentEditableWarning
-                    className="mb-3 min-h-[200px] rounded-[var(--radius)] border border-[var(--border-accent)] bg-[var(--bg-accent)] p-3 text-[13px] leading-[1.8] outline-none
-                      [&_h2]:mb-2 [&_h2]:mt-5 [&_h2]:text-base [&_h2]:font-bold
-                      [&_h3]:mb-1 [&_h3]:mt-4 [&_h3]:text-sm [&_h3]:font-semibold
-                      [&_p]:mt-2 [&_p]:leading-relaxed [&_li]:mt-1
-                      [&_ul]:mt-2 [&_ul]:list-disc [&_ul]:pl-5"
-                    style={{ color: 'var(--text-secondary)' }}
-                  />
-                </>
-              ) : (
-                /* ── 읽기 모드 ── */
-                <>
-                  <h2 className="mb-3 text-[15px] font-medium leading-[1.5]" style={{ color: 'var(--text-primary)' }}>
-                    {result.title}
-                  </h2>
+                  <p className="mb-3 animate-pulse text-[13px] font-medium" style={{ color: 'var(--text-accent)' }}>
+                    ✍️ AI가 글을 작성하고 있어요...
+                  </p>
                   <div
                     className="mb-3 text-[13px] leading-[1.8]
                       [&_h2]:mb-2 [&_h2]:mt-5 [&_h2]:text-base [&_h2]:font-bold [&_h2]:text-gray-900
@@ -883,10 +862,51 @@ export default function BlogFormPage() {
                       [&_strong]:font-semibold [&_strong]:text-gray-900
                       [&_ul]:mt-2 [&_ul]:list-disc [&_ul]:pl-5"
                     style={{ color: 'var(--text-secondary)' }}
-                    dangerouslySetInnerHTML={{ __html: renderContentWithImages(result.content, result.photos, mosaicUrls, mosaicEnabled) }}
+                    dangerouslySetInnerHTML={{ __html: streamingContent }}
                   />
                 </>
-              )}
+              ) : (
+                /* ── 완성 후 ── */
+                <>
+                  {/* ── 편집 모드 ── */}
+                  {isEditing ? (
+                    <>
+                      <input
+                        value={editTitle}
+                        onChange={e => setEditTitle(e.target.value)}
+                        className="mb-3 w-full rounded-[var(--radius)] border border-[var(--border-accent)] bg-[var(--bg-accent)] px-3 py-2 text-[15px] font-medium outline-none"
+                        style={{ color: 'var(--text-primary)' }}
+                      />
+                      <div
+                        ref={editRef}
+                        contentEditable
+                        suppressContentEditableWarning
+                        className="mb-3 min-h-[200px] rounded-[var(--radius)] border border-[var(--border-accent)] bg-[var(--bg-accent)] p-3 text-[13px] leading-[1.8] outline-none
+                          [&_h2]:mb-2 [&_h2]:mt-5 [&_h2]:text-base [&_h2]:font-bold
+                          [&_h3]:mb-1 [&_h3]:mt-4 [&_h3]:text-sm [&_h3]:font-semibold
+                          [&_p]:mt-2 [&_p]:leading-relaxed [&_li]:mt-1
+                          [&_ul]:mt-2 [&_ul]:list-disc [&_ul]:pl-5"
+                        style={{ color: 'var(--text-secondary)' }}
+                      />
+                    </>
+                  ) : (
+                    /* ── 읽기 모드 ── */
+                    <>
+                      <h2 className="mb-3 text-[15px] font-medium leading-[1.5]" style={{ color: 'var(--text-primary)' }}>
+                        {result.title}
+                      </h2>
+                      <div
+                        className="mb-3 text-[13px] leading-[1.8]
+                          [&_h2]:mb-2 [&_h2]:mt-5 [&_h2]:text-base [&_h2]:font-bold [&_h2]:text-gray-900
+                          [&_h3]:mb-1 [&_h3]:mt-4 [&_h3]:text-sm [&_h3]:font-semibold [&_h3]:text-gray-800
+                          [&_li]:mt-1 [&_p]:mt-2 [&_p]:leading-relaxed
+                          [&_strong]:font-semibold [&_strong]:text-gray-900
+                          [&_ul]:mt-2 [&_ul]:list-disc [&_ul]:pl-5"
+                        style={{ color: 'var(--text-secondary)' }}
+                        dangerouslySetInnerHTML={{ __html: renderContentWithImages(result.content, result.photos, mosaicUrls, mosaicEnabled) }}
+                      />
+                    </>
+                  )}
 
               {/* 구분선 */}
               <div className="my-3 h-px" style={{ background: 'var(--border)' }} />
