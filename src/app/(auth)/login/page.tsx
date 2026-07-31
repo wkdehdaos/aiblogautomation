@@ -86,6 +86,12 @@ export default function LoginPage() {
             회원가입
           </Link>
         </p>
+
+        <div className="border-t border-gray-100 pt-3 text-center">
+          <Link href="/" className="text-sm text-gray-400 transition hover:text-indigo-500">
+            ← 서비스 소개 보기
+          </Link>
+        </div>
       </form>
     </div>
   )
