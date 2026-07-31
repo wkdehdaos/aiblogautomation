@@ -452,6 +452,21 @@ export default function BlogFormPage() {
     } finally { setErrorReportSubmitting(false) }
   }
 
+  if (isLoggedIn === null) {
+    return (
+      <div className="flex flex-1 items-center justify-center" style={{ background: 'var(--surface-1)' }}>
+        <svg className="h-7 w-7 animate-spin text-indigo-400" fill="none" viewBox="0 0 24 24">
+          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+        </svg>
+      </div>
+    )
+  }
+
+  if (!isLoggedIn) {
+    return <LandingPage />
+  }
+
   const daysAgo = naverUploadedAt ? Math.floor((Date.now() - new Date(naverUploadedAt).getTime()) / 86400000) : null
   const isStale = daysAgo !== null && daysAgo >= 14
 
