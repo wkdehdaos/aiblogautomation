@@ -70,28 +70,6 @@ const LABEL_COLORS = {
 export default function LandingPage() {
   return (
     <div className="flex flex-col">
-      {/* ── 헤더 ── */}
-      <header className="flex items-center justify-between border-b border-gray-100 bg-white px-6 py-4">
-        <span className="text-[20px] font-bold tracking-tight" style={{ color: '#4f46e5' }}>
-          Blog<span style={{ color: '#a5b4fc' }}>dy</span>
-        </span>
-        <div className="flex items-center gap-2">
-          <Link
-            href="/login"
-            className="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 transition hover:bg-gray-50"
-          >
-            로그인
-          </Link>
-          <Link
-            href="/register"
-            className="rounded-lg px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90"
-            style={{ background: '#4f46e5' }}
-          >
-            회원가입
-          </Link>
-        </div>
-      </header>
-
       {/* ── 히어로 ── */}
       <section
         className="px-4 py-24 text-center text-white"
