@@ -897,10 +897,10 @@ export async function publishToNaver(
       for (let attempt = 0; attempt < 3 && !panelOpened; attempt++) {
         if (attempt > 0) {
           console.log(`  [발행] 패널 미열림 — 재시도 ${attempt + 1}`)
-          await editorPage.waitForTimeout(1000)
+          await editorPage.waitForTimeout(500)
         }
         await publishBtn.click({ force: attempt > 0 }).catch(() => {})
-        await editorPage.waitForTimeout(500)
+        await editorPage.waitForTimeout(200)
 
         const checkDeadline = Date.now() + 5000
         while (Date.now() < checkDeadline && !panelOpened) {
