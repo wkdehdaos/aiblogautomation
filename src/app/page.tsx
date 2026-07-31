@@ -473,6 +473,7 @@ export default function BlogFormPage() {
               if (s) setPublishProgress(s.pct)
             } else if (ev.type === 'done') {
               if (ev.success) {
+                setPublishProgress(100)
                 setPublishStatus({ type: 'success', message: '발행 완료! 네이버 블로그에서 확인해보세요.' })
                 setShowFeedback(true)
                 setFeedbackRating(0)
