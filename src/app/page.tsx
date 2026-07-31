@@ -1034,9 +1034,16 @@ export default function BlogFormPage() {
                   </div>
 
                   {isPublishing && (
-                    <p className="mt-2 text-center text-[12px]" style={{ color: 'var(--text-muted)' }}>
-                      네이버에 발행 중이에요... 잠시 기다려주세요
-                    </p>
+                    <div className="mt-2 text-center">
+                      <p className="text-[12px]" style={{ color: 'var(--text-muted)' }}>
+                        네이버에 발행 중이에요... 잠시 기다려주세요
+                      </p>
+                      {publishStep && (
+                        <p className="mt-1 animate-pulse text-[11px] font-medium" style={{ color: 'var(--text-accent)' }}>
+                          ▸ {publishStep}
+                        </p>
+                      )}
+                    </div>
                   )}
                 </>
               )}
