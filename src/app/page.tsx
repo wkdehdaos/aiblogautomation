@@ -32,6 +32,7 @@ interface GenerateResult {
 const INITIAL_FORM: BlogFormData = {
   businessName: '',
   businessInfo: '',
+  address: '',
   photos: [],
   keywords: [],
   tone: 'friendly',
