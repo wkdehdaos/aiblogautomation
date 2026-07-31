@@ -224,7 +224,13 @@ export async function POST(req: NextRequest) {
       return Response.json({ error: '응답 파싱 실패' }, { status: 500 })
     }
 
-    const { title, content } = toolUse.input as { title: string; content: string }
+    const { title } = toolUse.input as { title: string; content: string }
+    let { content } = toolUse.input as { title: string; content: string }
+
+    if (address) {
+      const mapUrl = `https://map.naver.com/v5/search/${encodeURIComponent(address)}`
+      content += `\n<h2 style="font-size:17px;font-weight:700;color:#222;margin:32px 0 10px">📍 위치 안내</h2>\n<div style="background:#f7f8fc;border-radius:8px;padding:20px 24px;margin:12px 0 24px;text-align:center">\n  <p style="font-size:14px;color:#444;margin:0 0 12px">${address}</p>\n  <a href="${mapUrl}" target="_blank" rel="noopener noreferrer" style="display:inline-block;background:#03c75a;color:#fff;font-size:13px;font-weight:600;padding:10px 24px;border-radius:6px;text-decoration:none">네이버 지도에서 보기 →</a>\n</div>`
+    }
 
     await prisma.user.update({
       where: { id: session.userId },
