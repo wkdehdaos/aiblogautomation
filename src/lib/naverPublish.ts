@@ -717,33 +717,42 @@ export async function publishToNaver(
       outerBodyVerified = bodyVerified
     })
 
-    // ── 7. 위치 지도 삽입 ────────────────────────────────────────────
+    // ── 7. 위치 지도 삽입 (네이버 장소 위젯 시도 — 실패해도 건너뜀)
+    // 위치 정보는 이미 HTML 본문에 포함돼 있으므로 이 단계는 보조적
     if (location) {
-      await step('위치지도삽입', async () => {
-        await editorPage.keyboard.press('Control+End')
-        await editorPage.waitForTimeout(200)
-        await editorPage.keyboard.press('Enter')
+      try {
+        await step('위치지도삽입', async () => {
+          await editorPage.keyboard.press('Control+End')
+          await editorPage.waitForTimeout(200)
 
-        const mapBtn = await findToolbarBtn(editorCtx,
-          '.se-map-toolbar-button',
-          '.se-place-toolbar-button',
-          'button[class*="map"][class*="toolbar"]',
-          'button[class*="place"][class*="toolbar"]',
-          'button[aria-label="장소"]',
-          'button[title="장소"]',
-          'button[data-module-name="map"]',
-          'button[data-module-name="place"]',
-        )
-        if (!mapBtn) throw new Error('장소 추가 버튼을 찾지 못했습니다.')
-        await mapBtn.click()
-        await editorPage.waitForTimeout(1000)
+          const mapBtn = await findToolbarBtn(editorCtx,
+            '.se-map-toolbar-button',
+            '.se-place-toolbar-button',
+            'button[class*="map"][class*="toolbar"]',
+            'button[class*="place"][class*="toolbar"]',
+            'button[aria-label="장소"]',
+            'button[title="장소"]',
+            'button[data-module-name="map"]',
+            'button[data-module-name="place"]',
+          )
+          if (!mapBtn) {
+            console.log('[위치] 장소 툴바 버튼 없음 — 본문 HTML에 이미 포함돼 있어 건너뜀')
+            return
+          }
+          await mapBtn.click()
+          await editorPage.waitForTimeout(1000)
 
-        const searchSel = 'input[placeholder*="장소"],input[placeholder*="검색"],input[type="search"],.se-map-search-input'
-        let searchInput = editorCtx.locator(searchSel).first()
-        if (!await searchInput.isVisible({ timeout: 2000 }).catch(() => false)) {
-          searchInput = editorPage.locator(searchSel).first()
-        }
-        if (await searchInput.isVisible({ timeout: 4000 }).catch(() => false)) {
+          const searchSel = 'input[placeholder*="장소"],input[placeholder*="검색"],input[type="search"],.se-map-search-input'
+          let searchInput = editorCtx.locator(searchSel).first()
+          if (!await searchInput.isVisible({ timeout: 2000 }).catch(() => false)) {
+            searchInput = editorPage.locator(searchSel).first()
+          }
+          if (!await searchInput.isVisible({ timeout: 4000 }).catch(() => false)) {
+            console.log('[위치] 장소 검색창 없음 — 건너뜀')
+            await editorPage.keyboard.press('Escape').catch(() => {})
+            return
+          }
+
           await searchInput.fill(location)
           await searchInput.press('Enter')
           await editorPage.waitForTimeout(2000)
@@ -775,8 +784,10 @@ export async function publishToNaver(
           }
           if (!confirmed) await editorPage.keyboard.press('Enter')
           await editorPage.waitForTimeout(1000)
-        }
-      })
+        })
+      } catch (err) {
+        console.log('[위치] 장소 위젯 삽입 실패 — 본문 HTML에 이미 포함돼 있어 계속 진행:', err instanceof Error ? err.message : String(err))
+      }
     }
 
     // ── 8. 발행 전 본문 최종 검증 ────────────────────────────────────
