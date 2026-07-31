@@ -591,7 +591,7 @@ export async function publishToNaver(
               const fileChooser = await chooserPromise
               if (fileChooser) {
                 await fileChooser.setFiles([imgPath])
-                await editorPage.waitForTimeout(5000)  // CDN 업로드 충분히 대기
+                await editorPage.waitForTimeout(3000)  // CDN 업로드 대기
                 uploaded = true
                 console.log(`[img] ${section.idx + 1}번 파일 선택기 업로드 성공`)
               } else {
@@ -600,7 +600,7 @@ export async function publishToNaver(
                   const input = await frame.waitForSelector('input[type="file"]', { timeout: 2000 }).catch(() => null)
                   if (input) {
                     await input.setInputFiles([imgPath])
-                    await editorPage.waitForTimeout(5000)
+                    await editorPage.waitForTimeout(3000)
                     uploaded = true
                     console.log(`[img] ${section.idx + 1}번 패널 내 file input 업로드 성공`)
                     break
