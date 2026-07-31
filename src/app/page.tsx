@@ -3,6 +3,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import LandingPage from '@/components/LandingPage'
 
 type ToneOption = 'friendly' | 'professional' | 'informative'
 
