@@ -409,6 +409,7 @@ export default function BlogFormPage() {
     setForm(INITIAL_FORM)
     setIsGenerated(false)
     setIsEditing(false)
+    setStreamingContent('')
   }
 
   const handlePublish = async () => {
