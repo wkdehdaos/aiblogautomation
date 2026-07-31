@@ -827,7 +827,7 @@ export default function BlogFormPage() {
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                   </svg>
-                  AI가 작성 중...
+                  ✍️ 글 작성 중...
                 </>
               ) : (
                 <>✦ 블로그 글 자동 작성하기</>
