@@ -16,6 +16,7 @@ interface PhotoItem {
 interface BlogFormData {
   businessName: string
   businessInfo: string
+  address: string
   photos: PhotoItem[]
   keywords: string[]
   tone: ToneOption
