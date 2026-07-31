@@ -468,7 +468,9 @@ export default function BlogFormPage() {
           try {
             const ev = JSON.parse(line.slice(6)) as { type: string; step?: string; success?: boolean; error?: string; lastStep?: string }
             if (ev.type === 'progress' && ev.step) {
-              setPublishStep(PUBLISH_STEP_LABELS[ev.step] ?? ev.step)
+              const s = PUBLISH_STEPS[ev.step]
+              setPublishStep(s?.label ?? ev.step)
+              if (s) setPublishProgress(s.pct)
             } else if (ev.type === 'done') {
               if (ev.success) {
                 setPublishStatus({ type: 'success', message: '발행 완료! 네이버 블로그에서 확인해보세요.' })
