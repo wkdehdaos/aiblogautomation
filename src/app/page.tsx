@@ -431,6 +431,7 @@ export default function BlogFormPage() {
     setIsPublishing(true)
     setPublishStatus(null)
     setPublishStep('')
+    setPublishProgress(0)
     try {
       const images = await Promise.all(
         result.photos.map(p => {
