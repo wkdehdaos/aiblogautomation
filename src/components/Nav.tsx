@@ -16,11 +16,11 @@ export default function Nav() {
     fetch('/api/auth/me')
       .then(r => r.json())
       .then((d: { user?: { name: string | null; email: string } }) => {
-        if (d.user) setUser(d.user)
+        setUser(d.user ?? null)
+        setChecked(true)
       })
-      .catch(() => {})
-      .finally(() => setChecked(true))
-  }, [])
+      .catch(() => { setUser(null); setChecked(true) })
+  }, [pathname])
 
   if (!checked) return null
 
