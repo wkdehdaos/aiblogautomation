@@ -364,7 +364,7 @@ export async function publishToNaver(
 
       // Enter로 본문으로 이동 (셀렉터 없이 키보드만 사용)
       await editorPage.keyboard.press('Enter')
-      await editorPage.waitForTimeout(1000)
+      await editorPage.waitForTimeout(300)
 
       // 05-본문이동후.png
       await snap(editorPage, '본문이동후', 5)
