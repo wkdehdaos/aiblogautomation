@@ -11,8 +11,11 @@ export type PublishResult = PublishSuccess | PublishFailure
 const SESSION_PATH = path.resolve(process.cwd(), 'naver-session.json')
 const SCREENSHOT_DIR = path.resolve(process.cwd(), 'debug-screenshots')
 
+const IS_PROD = process.env.NODE_ENV === 'production'
+
 let _snapDirReady = false
 async function snap(page: Page, label: string, index: number) {
+  if (IS_PROD) return  // 운영 환경에서 스크린샷 생략 (디스크 I/O 절약)
   if (!_snapDirReady) { fs.mkdirSync(SCREENSHOT_DIR, { recursive: true }); _snapDirReady = true }
   await page.screenshot({
     path: path.join(SCREENSHOT_DIR, `${String(index).padStart(2, '0')}-${label}.png`),
