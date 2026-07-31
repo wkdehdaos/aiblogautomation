@@ -661,7 +661,7 @@ export async function publishToNaver(
               await editorEl.click({ timeout: 3000 }).catch(() => {})
               await editorPage.waitForTimeout(200)
               await editorPage.keyboard.press('Control+V')
-              await editorPage.waitForTimeout(4000)  // CDN 업로드 대기
+              await editorPage.waitForTimeout(2500)  // CDN 업로드 대기
               uploaded = true
               console.log(`[img] ${section.idx + 1}번 클립보드 붙여넣기 성공`)
             }
