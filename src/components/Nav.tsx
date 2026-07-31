@@ -2,10 +2,13 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
+
+const AUTH_PATHS = ['/login', '/register']
 
 export default function Nav() {
   const router = useRouter()
+  const pathname = usePathname()
   const [user, setUser] = useState<{ name: string | null; email: string } | null>(null)
   const [checked, setChecked] = useState(false)
 
@@ -22,6 +25,7 @@ export default function Nav() {
   if (!checked) return null
 
   if (!user) {
+    if (AUTH_PATHS.some(p => pathname.startsWith(p))) return null
     return (
       <nav
         className="flex shrink-0 items-center justify-between px-5"
