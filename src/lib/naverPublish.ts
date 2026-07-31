@@ -172,7 +172,10 @@ export async function publishToNaver(
   if (!hasSession) return { success: false, error: '네이버 세션 없음. 네이버 계정을 연결해주세요.', lastStep }
 
   const isHeadless = process.env.NODE_ENV === 'production'
-  const browser = await chromium.launch({ headless: isHeadless })
+  const browser = await chromium.launch({
+    headless: isHeadless,
+    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'],
+  })
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const storageStateArg: any = storageStateData ?? SESSION_PATH
   const context = await browser.newContext({
