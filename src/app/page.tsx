@@ -683,6 +683,14 @@ export default function BlogFormPage() {
                 className={inputCls + ' resize-none'} />
             </div>
 
+            <div className="mb-[14px]">
+              <label className="mb-[5px] block text-[13px]" style={{ color: 'var(--text-secondary)' }}>
+                업체 주소 <span className="text-[11px] font-normal opacity-60">(입력 시 본문에 지도 링크 자동 삽입)</span>
+              </label>
+              <input type="text" placeholder="예: 서울특별시 강남구 테헤란로 123" value={form.address}
+                onChange={e => set('address', e.target.value)} className={inputCls} />
+            </div>
+
             {/* 사진 업로드 */}
             <button type="button" onClick={() => fileInputRef.current?.click()}
               className="mb-[14px] flex w-full items-center justify-center gap-2 rounded-[var(--radius)] border border-dashed border-[var(--border-strong)] py-4 text-[12px] transition hover:border-[var(--border-accent)] hover:bg-[var(--bg-accent)]"
