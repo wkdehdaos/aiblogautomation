@@ -148,6 +148,7 @@ export default function BlogFormPage() {
   const [result, setResult] = useState<GenerateResult | null>(null)
   const [isPublishing, setIsPublishing] = useState(false)
   const [publishStep, setPublishStep] = useState('')
+  const [publishProgress, setPublishProgress] = useState(0)
   const [publishStatus, setPublishStatus] = useState<{
     type: 'success' | 'error'; message: string; step?: string; sessionExpired?: boolean
   } | null>(null)
