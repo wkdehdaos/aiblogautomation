@@ -33,25 +33,49 @@ async function toImageBlock(file: File): Promise<Anthropic.ImageBlockParam | nul
   }
 }
 
-// tool_use로 구조화된 출력을 강제 — title/content 필드가 스키마로 보장됨
-const BLOG_TOOL: Anthropic.Tool = {
-  name: 'write_blog_post',
-  description: '블로그 글 제목과 HTML 본문을 작성합니다.',
-  input_schema: {
-    type: 'object' as const,
-    properties: {
-      title: {
-        type: 'string',
-        description: '블로그 글 제목 (이모지·HTML 태그 없는 순수 텍스트)',
-      },
-      content: {
-        type: 'string',
-        description: '블로그 본문 HTML',
-      },
-    },
-    required: ['title', 'content'],
-  },
-}
+const SYSTEM_PROMPT = `당신은 10년 경력의 한국 파워블로거입니다.
+반드시 아래 형식으로만 응답하세요 (다른 말 없이):
+
+<blogTitle>제목</blogTitle>
+<blogContent>
+HTML 본문
+</blogContent>
+
+## 글쓰기 스타일
+- 1인칭 시점, 친한 친구에게 말하듯 자연스럽고 솔직하게
+- 구체적인 디테일 (맛, 식감, 분위기, 직원 태도, 가격 체감 등) 생생하게 묘사
+- 단점도 한두 가지 솔직하게 언급 — 진짜 후기처럼 보여야 함
+- "강추", "필수코스", "강력 추천" 같은 광고성 표현 금지
+- 이모지는 맨 앞 인사 👋 딱 하나만, 본문에는 금지
+- 숫자 접두어(1. 2. 3.) 부제목 사용 금지
+
+## blogContent HTML 구조 (반드시 준수)
+<p style="font-size:28px;text-align:center;margin:0 0 16px">👋</p>
+<p style="line-height:1.9;font-size:15px;color:#333">도입...</p>
+<h2 style="font-size:17px;font-weight:700;color:#222;margin:32px 0 10px">부제목</h2>
+<p style="line-height:1.9;font-size:15px;color:#333">내용...</p>
+<!--IMAGE_1-->
+<h2 style="font-size:17px;font-weight:700;color:#222;margin:32px 0 10px">부제목</h2>
+<p style="line-height:1.9;font-size:15px;color:#333">내용...</p>
+<div style="text-align:center;margin:28px 0;padding:20px">
+  <p style="font-size:13px;color:#aaa;margin:0">"</p>
+  <p style="font-size:16px;font-weight:600;color:#333;margin:8px 0;line-height:1.7">핵심 인상 한 문장</p>
+  <p style="font-size:13px;color:#aaa;margin:0">"</p>
+</div>
+<!--IMAGE_2-->
+<h2 style="font-size:17px;font-weight:700;color:#222;margin:32px 0 10px">방문 정보</h2>
+<div style="background:#f7f8fc;border-radius:8px;padding:20px 24px;margin:12px 0">
+  <ul style="margin:0;padding-left:4px;list-style:none;font-size:14px;color:#444;line-height:2.2">
+    <li><strong>영업시간</strong> &nbsp; ...</li>
+    <li><strong>가격대</strong> &nbsp; ...</li>
+    <li><strong>주차</strong> &nbsp; ...</li>
+    <li><strong>예약</strong> &nbsp; ...</li>
+  </ul>
+</div>
+
+## blogTitle 스타일
+- 업체명 + 솔직한 느낌/특징을 담은 자연스러운 문장
+- 이모지·HTML 태그 없이`
 
 export async function POST(req: NextRequest) {
   const session = await getSession()
@@ -63,23 +87,18 @@ export async function POST(req: NextRequest) {
     return Response.json({ error: 'ANTHROPIC_API_KEY가 설정되지 않았습니다.' }, { status: 500 })
   }
 
-  // 플랜별 생성 횟수 체크
   let user = await prisma.user.findUnique({ where: { id: session.userId } })
   if (!user) return Response.json({ error: '사용자를 찾을 수 없습니다.' }, { status: 404 })
 
-  // 개발자 계정은 모든 제한 없이 통과
   const isDeveloper = DEVELOPER_EMAILS.has(user.email)
 
   if (!isDeveloper) {
-    // 베타 한도 체크 (5회)
     if (user.betaCount >= BETA_LIMIT) {
       return Response.json(
         { error: '베타 테스트 횟수를 모두 사용했어요. 정식 출시 시 알림을 받으시겠어요?', betaExceeded: true },
         { status: 429 }
       )
     }
-
-    // 유료 플랜 사용자만 월별 한도 체크 (베타 기간 중 무료 사용자는 betaCount로만 제한)
     if (user.plan !== 'free') {
       if (isNewMonth(user.postCountResetAt)) {
         user = await prisma.user.update({
@@ -87,7 +106,6 @@ export async function POST(req: NextRequest) {
           data: { postCount: 0, postCountResetAt: new Date() },
         })
       }
-
       const limit = getPostLimit(user.plan)
       if (user.postCount >= limit) {
         return Response.json(
@@ -98,149 +116,155 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
-
+  // 폼 파싱 + 이미지 처리 (스트림 시작 전에 완료)
+  let formData: FormData
   try {
-    const formData = await req.formData()
-
-    const businessName = formData.get('businessName') as string
-    const businessInfo = formData.get('businessInfo') as string
-    const keywordsRaw = (formData.get('keywords') as string) || '[]'
-    const keywords: string[] = JSON.parse(keywordsRaw)
-    const lengthOption = (formData.get('lengthOption') as string) || 'medium'
-    const customLength = formData.get('customLength') as string
-    const tone = (formData.get('tone') as string) || 'friendly'
-    const seoOptimize = formData.get('seoOptimize') === 'true'
-    const mustInclude = (formData.get('mustInclude') as string) || ''
-    const mustExclude = (formData.get('mustExclude') as string) || ''
-    const titleHint = (formData.get('title') as string) || ''
-
-    const address = (formData.get('address') as string) || ''
-    const photoFiles = formData.getAll('photos') as File[]
-
-    const results = await Promise.allSettled(photoFiles.map(toImageBlock))
-    const successIndices: number[] = []
-    const imageBlocks: Anthropic.ImageBlockParam[] = []
-    results.forEach((r, idx) => {
-      if (r.status === 'fulfilled' && r.value !== null) {
-        imageBlocks.push(r.value)
-        successIndices.push(idx)
-      }
-    })
-
-    const lengthInstruction =
-      lengthOption === 'custom' && customLength
-        ? `${customLength}자 내외`
-        : (LENGTH_MAP[lengthOption] ?? '1000자 내외')
-
-    const toneInstruction = TONE_MAP[tone] ?? '친근하고 편안한 말투'
-
-    const systemPrompt = `당신은 10년 경력의 한국 파워블로거입니다. write_blog_post 툴을 반드시 호출해 title과 content를 채워주세요.
-
-## 글쓰기 스타일
-- 1인칭 시점, 친한 친구에게 말하듯 자연스럽고 솔직하게 — 문장이 딱딱하지 않고 흐르듯 이어져야 함
-- 구체적인 디테일 (맛, 식감, 분위기, 직원 태도, 대기 시간, 가격 체감 등) 을 생생하게 묘사
-- 단점이나 아쉬운 점도 한두 가지 솔직하게 언급 — 그래야 진짜 후기처럼 보임
-- "강추", "필수코스", "강력 추천", "맛집 인정" 같은 광고성·과장 표현 절대 금지
-- 이모지는 맨 앞 인사 👋 딱 하나만 — 본문에는 절대 사용 금지
-- 문단과 문단 사이 흐름이 자연스럽게 이어지도록
-- 숫자 접두어(1. 2. 3.) 부제목 사용 금지
-
-## content 필드 HTML 구조 (반드시 준수)
-
-<p style="font-size:28px;text-align:center;margin:0 0 16px">👋</p>
-
-<p style="line-height:1.9;font-size:15px;color:#333">도입 내용...</p>
-
-<h2 style="font-size:17px;font-weight:700;color:#222;margin:32px 0 10px">부제목</h2>
-<p style="line-height:1.9;font-size:15px;color:#333">내용...</p>
-
-<!--IMAGE_1-->
-
-<h2 style="font-size:17px;font-weight:700;color:#222;margin:32px 0 10px">부제목</h2>
-<p style="line-height:1.9;font-size:15px;color:#333">내용...</p>
-
-<div style="text-align:center;margin:28px 0;padding:20px">
-  <p style="font-size:13px;color:#aaa;margin:0">"</p>
-  <p style="font-size:16px;font-weight:600;color:#333;margin:8px 0;line-height:1.7">핵심 인상이나 느낌을 한 문장으로</p>
-  <p style="font-size:13px;color:#aaa;margin:0">"</p>
-</div>
-
-<!--IMAGE_2-->
-
-<h2 style="font-size:17px;font-weight:700;color:#222;margin:32px 0 10px">부제목</h2>
-<p style="line-height:1.9;font-size:15px;color:#333">내용...</p>
-
-<h2 style="font-size:17px;font-weight:700;color:#222;margin:32px 0 10px">방문 정보</h2>
-<div style="background:#f7f8fc;border-radius:8px;padding:20px 24px;margin:12px 0">
-  <ul style="margin:0;padding-left:4px;list-style:none;font-size:14px;color:#444;line-height:2.2">
-    <li><strong>영업시간</strong> &nbsp; ...</li>
-    <li><strong>가격대</strong> &nbsp; ...</li>
-    <li><strong>주차</strong> &nbsp; ...</li>
-    <li><strong>예약</strong> &nbsp; ...</li>
-  </ul>
-</div>
-
-## title 필드 스타일
-- 업체명 + 솔직한 느낌/특징을 담은 자연스러운 문장
-- 예: "[업체명] 다녀온 솔직 후기, 기대보다 괜찮았던 이유"
-- 이모지·HTML 태그 없이`
-
-    const userLines = [
-      `업체명: ${businessName}`,
-      `업체 정보:\n${businessInfo}`,
-      keywords.length > 0 && `키워드: ${keywords.join(', ')}`,
-      `글 길이: ${lengthInstruction}`,
-      `말투: ${toneInstruction}`,
-      seoOptimize && 'SEO 최적화: 주요 키워드를 제목과 본문에 자연스럽게 반복 활용해 주세요.',
-      mustInclude && `반드시 포함할 내용: ${mustInclude}`,
-      mustExclude && `반드시 제외할 내용: ${mustExclude}`,
-      titleHint && `제목 힌트 (참고용): ${titleHint}`,
-      imageBlocks.length > 0 &&
-        `첨부 사진 ${imageBlocks.length}장이 있습니다. content 본문 중간 적절한 위치마다 <!--IMAGE_1-->, <!--IMAGE_2--> ... <!--IMAGE_${imageBlocks.length}--> 마커를 삽입해 주세요.`,
-    ]
-      .filter(Boolean)
-      .join('\n')
-
-    const userContent: Anthropic.MessageParam['content'] = [
-      { type: 'text', text: userLines },
-      ...imageBlocks,
-    ]
-
-    const response = await client.messages.create({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 4096,
-      system: systemPrompt,
-      tools: [BLOG_TOOL],
-      tool_choice: { type: 'tool', name: 'write_blog_post' },
-      messages: [{ role: 'user', content: userContent }],
-    })
-
-    const toolUse = response.content.find(
-      (block): block is Anthropic.ToolUseBlock => block.type === 'tool_use'
-    )
-    if (!toolUse) {
-      console.error('[generate] tool_use 블록 없음:', JSON.stringify(response.content).slice(0, 300))
-      return Response.json({ error: '응답 파싱 실패' }, { status: 500 })
-    }
-
-    const { title } = toolUse.input as { title: string; content: string }
-    let { content } = toolUse.input as { title: string; content: string }
-
-    if (address) {
-      const mapUrl = `https://map.naver.com/v5/search/${encodeURIComponent(address)}`
-      content += `\n<h2 style="font-size:17px;font-weight:700;color:#222;margin:32px 0 10px">📍 위치 안내</h2>\n<div style="background:#f7f8fc;border-radius:8px;padding:20px 24px;margin:12px 0 24px;text-align:center">\n  <p style="font-size:14px;color:#444;margin:0 0 12px">${address}</p>\n  <a href="${mapUrl}" target="_blank" rel="noopener noreferrer" style="display:inline-block;background:#03c75a;color:#fff;font-size:13px;font-weight:600;padding:10px 24px;border-radius:6px;text-decoration:none">네이버 지도에서 보기 →</a>\n</div>`
-    }
-
-    await prisma.user.update({
-      where: { id: session.userId },
-      data: { postCount: { increment: 1 }, betaCount: { increment: 1 } },
-    })
-
-    return Response.json({ title, content, successIndices })
-  } catch (err) {
-    console.error('[generate] error:', err)
-    const message = err instanceof Error ? err.message : '알 수 없는 오류'
-    return Response.json({ error: message }, { status: 500 })
+    formData = await req.formData()
+  } catch {
+    return Response.json({ error: '요청 파싱 실패' }, { status: 400 })
   }
+
+  const businessName = formData.get('businessName') as string
+  const businessInfo = formData.get('businessInfo') as string
+  const address = (formData.get('address') as string) || ''
+  const keywordsRaw = (formData.get('keywords') as string) || '[]'
+  const keywords: string[] = JSON.parse(keywordsRaw)
+  const lengthOption = (formData.get('lengthOption') as string) || 'medium'
+  const customLength = formData.get('customLength') as string
+  const tone = (formData.get('tone') as string) || 'friendly'
+  const seoOptimize = formData.get('seoOptimize') === 'true'
+  const mustInclude = (formData.get('mustInclude') as string) || ''
+  const mustExclude = (formData.get('mustExclude') as string) || ''
+  const titleHint = (formData.get('title') as string) || ''
+  const photoFiles = formData.getAll('photos') as File[]
+
+  const results = await Promise.allSettled(photoFiles.map(toImageBlock))
+  const successIndices: number[] = []
+  const imageBlocks: Anthropic.ImageBlockParam[] = []
+  results.forEach((r, idx) => {
+    if (r.status === 'fulfilled' && r.value !== null) {
+      imageBlocks.push(r.value)
+      successIndices.push(idx)
+    }
+  })
+
+  const lengthInstruction = lengthOption === 'custom' && customLength
+    ? `${customLength}자 내외`
+    : (LENGTH_MAP[lengthOption] ?? '1000자 내외')
+  const toneInstruction = TONE_MAP[tone] ?? '친근하고 편안한 말투'
+
+  const userLines = [
+    `업체명: ${businessName}`,
+    `업체 정보:\n${businessInfo}`,
+    keywords.length > 0 && `키워드: ${keywords.join(', ')}`,
+    `글 길이: ${lengthInstruction}`,
+    `말투: ${toneInstruction}`,
+    seoOptimize && 'SEO 최적화: 주요 키워드를 제목과 본문에 자연스럽게 반복 활용해 주세요.',
+    mustInclude && `반드시 포함할 내용: ${mustInclude}`,
+    mustExclude && `반드시 제외할 내용: ${mustExclude}`,
+    titleHint && `제목 힌트 (참고용): ${titleHint}`,
+    imageBlocks.length > 0 &&
+      `첨부 사진 ${imageBlocks.length}장. 본문 중간 적절한 위치마다 <!--IMAGE_1-->, <!--IMAGE_2--> ... <!--IMAGE_${imageBlocks.length}--> 마커를 삽입하세요.`,
+  ].filter(Boolean).join('\n')
+
+  const userContent: Anthropic.MessageParam['content'] = [
+    { type: 'text', text: userLines },
+    ...imageBlocks,
+  ]
+
+  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+  const userId = session.userId
+  const encoder = new TextEncoder()
+
+  const readable = new ReadableStream({
+    async start(controller) {
+      const send = (data: object) => {
+        try {
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`))
+        } catch { /* 스트림 닫힘 */ }
+      }
+
+      try {
+        const stream = await client.messages.create({
+          model: 'claude-sonnet-4-6',
+          max_tokens: 2000,
+          stream: true,
+          system: SYSTEM_PROMPT,
+          messages: [{ role: 'user', content: userContent }],
+        })
+
+        let fullText = ''
+        let inContent = false
+        let tailBuffer = '' // </blogContent> 분할 감지용 (최대 15자 보류)
+
+        for await (const event of stream) {
+          if (event.type !== 'content_block_delta') continue
+          if (event.delta.type !== 'text_delta') continue
+
+          const chunk = event.delta.text
+          fullText += chunk
+
+          if (!inContent) {
+            const idx = fullText.indexOf('<blogContent>')
+            if (idx !== -1) {
+              inContent = true
+              tailBuffer = fullText.slice(idx + '<blogContent>'.length)
+            }
+          } else {
+            tailBuffer += chunk
+            const endIdx = tailBuffer.indexOf('</blogContent>')
+            if (endIdx !== -1) {
+              const toSend = tailBuffer.slice(0, endIdx)
+              if (toSend) send({ type: 'content', chunk: toSend })
+              tailBuffer = ''
+              inContent = false
+            } else {
+              // </blogContent> 태그가 잘릴 수 있으니 마지막 14자는 보류
+              const safe = tailBuffer.slice(0, Math.max(0, tailBuffer.length - 14))
+              if (safe) {
+                send({ type: 'content', chunk: safe })
+                tailBuffer = tailBuffer.slice(safe.length)
+              }
+            }
+          }
+        }
+
+        // 최종 파싱
+        const titleMatch = fullText.match(/<blogTitle>([\s\S]*?)<\/blogTitle>/)
+        const title = titleMatch?.[1]?.trim() ?? `${businessName} 방문 후기`
+        const contentMatch = fullText.match(/<blogContent>([\s\S]*?)<\/blogContent>/)
+        let content = contentMatch?.[1]?.trim() ?? ''
+
+        if (!content) {
+          send({ type: 'error', error: '블로그 내용 생성에 실패했습니다. 다시 시도해주세요.' })
+          return
+        }
+
+        if (address) {
+          const mapUrl = `https://map.naver.com/v5/search/${encodeURIComponent(address)}`
+          content += `\n<h2 style="font-size:17px;font-weight:700;color:#222;margin:32px 0 10px">📍 위치 안내</h2>\n<div style="background:#f7f8fc;border-radius:8px;padding:20px 24px;margin:12px 0 24px;text-align:center">\n  <p style="font-size:14px;color:#444;margin:0 0 12px">${address}</p>\n  <a href="${mapUrl}" target="_blank" rel="noopener noreferrer" style="display:inline-block;background:#03c75a;color:#fff;font-size:13px;font-weight:600;padding:10px 24px;border-radius:6px;text-decoration:none">네이버 지도에서 보기 →</a>\n</div>`
+        }
+
+        await prisma.user.update({
+          where: { id: userId },
+          data: { postCount: { increment: 1 }, betaCount: { increment: 1 } },
+        })
+
+        send({ type: 'done', title, content, successIndices })
+      } catch (err) {
+        console.error('[generate] stream error:', err)
+        send({ type: 'error', error: err instanceof Error ? err.message : '알 수 없는 오류' })
+      } finally {
+        controller.close()
+      }
+    }
+  })
+
+  return new Response(readable, {
+    headers: {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+    },
+  })
 }
