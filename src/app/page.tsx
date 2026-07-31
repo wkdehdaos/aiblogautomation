@@ -319,6 +319,7 @@ export default function BlogFormPage() {
     e.preventDefault()
     setIsLoading(true)
     setResult(null)
+    setStreamingContent('')
     setPublishStatus(null)
     try {
       const fd = new FormData()
@@ -341,13 +342,47 @@ export default function BlogFormPage() {
         if (err.betaExceeded) { setShowWaitlist(true); return }
         throw new Error(err.error ?? `HTTP ${res.status}`)
       }
-      const data = (await res.json()) as { title: string; content: string; successIndices?: number[] }
-      const resultPhotos = data.successIndices
-        ? data.successIndices.map(i => form.photos[i]).filter(Boolean)
-        : form.photos
-      setResult({ title: data.title, content: data.content, photos: resultPhotos })
-      setIsGenerated(true)
-      setIsEditing(false)
+
+      const reader = res.body!.getReader()
+      const decoder = new TextDecoder()
+      let buf = ''
+      let firstChunk = true
+      const currentPhotos = [...form.photos]
+
+      outer: while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buf += decoder.decode(value, { stream: true })
+        const lines = buf.split('\n')
+        buf = lines.pop() ?? ''
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue
+          try {
+            const ev = JSON.parse(line.slice(6)) as {
+              type: string; chunk?: string
+              title?: string; content?: string; successIndices?: number[]
+              error?: string
+            }
+            if (ev.type === 'content') {
+              if (firstChunk) { firstChunk = false; setIsGenerated(true) }
+              setStreamingContent(prev => prev + (ev.chunk ?? ''))
+            } else if (ev.type === 'done') {
+              const resultPhotos = ev.successIndices
+                ? ev.successIndices.map(i => currentPhotos[i]).filter(Boolean)
+                : currentPhotos
+              setResult({ title: ev.title!, content: ev.content!, photos: resultPhotos })
+              setStreamingContent('')
+              setIsEditing(false)
+              break outer
+            } else if (ev.type === 'error') {
+              throw new Error(ev.error)
+            }
+          } catch (parseErr) {
+            if (parseErr instanceof SyntaxError) continue
+            throw parseErr
+          }
+        }
+      }
     } catch (err) {
       alert(`글 생성 중 오류가 발생했습니다.\n${err instanceof Error ? err.message : ''}`)
     } finally {
