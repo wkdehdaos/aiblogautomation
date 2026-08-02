@@ -12,6 +12,8 @@ interface BetaStatus {
 export default function PricingPage() {
   const router = useRouter()
   const [status, setStatus] = useState<BetaStatus | null>(null)
+  const [userEmail, setUserEmail] = useState<string>('')
+  const [userName, setUserName] = useState<string>('')
   const [loggedIn, setLoggedIn] = useState(false)
   const [loading, setLoading] = useState(true)
   const [paying, setPaying] = useState<Plan | null>(null)
@@ -22,9 +24,11 @@ export default function PricingPage() {
     import('@portone/browser-sdk/v2').then((m) => { portoneRef.current = m })
     fetch('/api/auth/me')
       .then(r => r.json())
-      .then((d: { user?: { betaCount?: number; plan?: Plan } }) => {
+      .then((d: { user?: { betaCount?: number; plan?: Plan; email?: string; name?: string } }) => {
         if (d.user) {
           setLoggedIn(true)
+          setUserEmail(d.user.email ?? '')
+          setUserName(d.user.name ?? '')
           setStatus({ betaCount: d.user.betaCount ?? 0, plan: d.user.plan ?? 'free' })
         } else {
           setStatus({ betaCount: 0, plan: 'free' })
