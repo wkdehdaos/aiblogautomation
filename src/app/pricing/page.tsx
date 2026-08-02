@@ -49,7 +49,7 @@ export default function PricingPage() {
     setPaying(plan)
     setMessage(null)
     const planInfo = PLANS[plan]
-    const paymentId = `blogdy-${plan}-${Date.now()}`
+    const paymentId = `blogdy${plan}${Date.now()}`
 
     const storeId = process.env.NEXT_PUBLIC_PORTONE_STORE_ID
     const channelKey = process.env.NEXT_PUBLIC_PORTONE_CHANNEL_KEY
