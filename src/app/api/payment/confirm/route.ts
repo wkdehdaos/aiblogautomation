@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
 
   const payment = (await verifyRes.json()) as {
     status: string
-    totalAmount: number
+    amount: { total: number }
     currency: string
   }
 
@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
   }
 
   const planInfo = PLANS[plan]
-  if (payment.totalAmount !== (expectedAmount ?? planInfo.price)) {
+  if (payment.amount.total !== (expectedAmount ?? planInfo.price)) {
     return Response.json({ error: '결제 금액이 일치하지 않습니다.' }, { status: 400 })
   }
 
