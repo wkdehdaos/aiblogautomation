@@ -68,6 +68,10 @@ export default function PricingPage() {
         totalAmount: planInfo.price,
         currency: 'CURRENCY_KRW',
         payMethod: 'CARD',
+        customer: {
+          email: userEmail,
+          fullName: userName || undefined,
+        },
       })
 
       if (response?.code) {
