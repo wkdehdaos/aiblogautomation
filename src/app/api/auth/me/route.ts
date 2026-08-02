@@ -9,7 +9,7 @@ export async function GET() {
 
   const user = await prisma.user.findUnique({
     where: { id: session.userId },
-    select: { id: true, email: true, name: true, betaCount: true },
+    select: { id: true, email: true, name: true, betaCount: true, plan: true },
   })
 
   if (!user) return Response.json({ user: null }, { status: 401 })
@@ -20,6 +20,7 @@ export async function GET() {
       email: user.email,
       name: user.name,
       betaCount: user.betaCount,
+      plan: user.plan,
     },
   })
 }
