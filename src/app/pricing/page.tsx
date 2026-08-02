@@ -47,10 +47,18 @@ export default function PricingPage() {
     const planInfo = PLANS[plan]
     const paymentId = `blogdy-${plan}-${Date.now()}`
 
+    const storeId = process.env.NEXT_PUBLIC_PORTONE_STORE_ID
+    const channelKey = process.env.NEXT_PUBLIC_PORTONE_CHANNEL_KEY
+    if (!storeId || !channelKey) {
+      setMessage({ type: 'error', text: '결제 설정이 올바르지 않습니다. 관리자에게 문의해주세요.' })
+      setPaying(null)
+      return
+    }
+
     try {
       const response = await PortOne.requestPayment({
-        storeId: process.env.NEXT_PUBLIC_PORTONE_STORE_ID!,
-        channelKey: process.env.NEXT_PUBLIC_PORTONE_CHANNEL_KEY!,
+        storeId,
+        channelKey,
         paymentId,
         orderName: `블로디(Blogdy) ${planInfo.label} 플랜`,
         totalAmount: planInfo.price,
@@ -81,8 +89,10 @@ export default function PricingPage() {
       } else {
         setMessage({ type: 'error', text: data.error ?? '결제 확인 중 오류가 발생했습니다.' })
       }
-    } catch {
-      setMessage({ type: 'error', text: '결제 중 오류가 발생했습니다.' })
+    } catch (err) {
+      console.error('[payment error]', err)
+      const msg = err instanceof Error ? err.message : String(err)
+      setMessage({ type: 'error', text: `결제 중 오류가 발생했습니다. (${msg})` })
     } finally {
       setPaying(null)
     }
