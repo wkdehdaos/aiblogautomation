@@ -21,6 +21,7 @@ export async function GET() {
       name: user.name,
       betaCount: user.betaCount,
       plan: user.plan,
+      isAdmin: user.email === process.env.ADMIN_EMAIL,
     },
   })
 }
