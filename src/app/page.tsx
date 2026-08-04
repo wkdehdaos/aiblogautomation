@@ -188,9 +188,10 @@ export default function BlogFormPage() {
   useEffect(() => {
     fetch('/api/auth/me')
       .then(r => r.json())
-      .then((d: { user?: { betaCount?: number } }) => {
+      .then((d: { user?: { betaCount?: number; isAdmin?: boolean } }) => {
         setIsLoggedIn(!!d.user)
         setBetaUsed(d.user?.betaCount ?? 0)
+        setIsAdmin(d.user?.isAdmin ?? false)
       })
       .catch(() => { setIsLoggedIn(false) })
     fetch('/api/naver/status')
