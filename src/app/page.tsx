@@ -743,11 +743,13 @@ export default function BlogFormPage() {
           )}
 
           <form onSubmit={handleSubmit}>
-            {/* 테스트 자동입력 */}
-            <button type="button" onClick={fillTestData}
-              className="mb-3 w-full rounded-[var(--radius)] border border-dashed border-amber-300 bg-amber-50 py-2 text-[12px] font-medium text-amber-700 transition hover:bg-amber-100">
-              🧪 테스트 자동입력
-            </button>
+            {/* 테스트 자동입력 - 관리자 전용 */}
+            {isAdmin && (
+              <button type="button" onClick={fillTestData}
+                className="mb-3 w-full rounded-[var(--radius)] border border-dashed border-amber-300 bg-amber-50 py-2 text-[12px] font-medium text-amber-700 transition hover:bg-amber-100">
+                🧪 테스트 자동입력
+              </button>
+            )}
 
             <SL>업체 정보</SL>
 
